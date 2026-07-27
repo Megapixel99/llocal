@@ -66,6 +66,14 @@ export interface LlocalApi {
   runAgentTool: (root: string, name: string, args: object) => Promise<string>
   mcpListTools: (servers: object[]) => Promise<object[]>
   mcpCallTool: (servers: object[], name: string, args: object) => Promise<string>
+  // Scheduling + native OS notifications are desktop-only. The shared renderer (InputForm)
+  // calls these unconditionally, so the mobile/web shim MUST provide them or the whole app
+  // crashes to a blank screen. They degrade to safe no-ops here.
+  setScheduleAgentMode: (mode: string) => Promise<void>
+  onScheduleFire: (cb: (task: unknown) => void) => () => void
+  onScheduleNotice: (cb: (notice: unknown) => void) => () => void
+  notify: (event: string, payload: unknown, prefs: unknown) => Promise<boolean>
+  notifySetPrefs: (prefs: unknown) => Promise<void>
 }
 
 const DESKTOP_ONLY = 'This feature is desktop-only. On mobile, use Settings → Repo & Console.'
@@ -201,6 +209,15 @@ export function createHttpApi(): LlocalApi {
     getAgentTools: async () => ({ tools: [], mutating: [] }),
     runAgentTool: () => Promise.reject(new Error(DESKTOP_ONLY)),
     mcpListTools: async () => [],
-    mcpCallTool: () => Promise.reject(new Error(DESKTOP_ONLY))
+    mcpCallTool: () => Promise.reject(new Error(DESKTOP_ONLY)),
+
+    // Scheduling + notifications are desktop-only; safe no-ops on mobile so the shared
+    // renderer doesn't call an undefined method and blank the app. onSchedule* return an
+    // unsubscribe function (matching the Electron event-subscription contract).
+    setScheduleAgentMode: async () => {},
+    onScheduleFire: () => () => {},
+    onScheduleNotice: () => () => {},
+    notify: async () => false,
+    notifySetPrefs: async () => {}
   }
 }
