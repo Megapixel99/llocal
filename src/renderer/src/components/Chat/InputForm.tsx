@@ -1,5 +1,6 @@
 import React, {
   ChangeEvent, ComponentProps,
+  useEffect,
   useState,
   // useCallback
 } from 'react'
@@ -19,10 +20,12 @@ import { WorkspaceFolder } from './WorkspaceFolder'
 import { AgentModeSelector } from './AgentModeSelector'
 import { AgentApproval } from './AgentApproval'
 import { AutoComplete } from './AutoComplete'
+import { CommandPalette } from './CommandPalette'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { activeTabAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
+import { activeTabAtom, commandListAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
 import ToolTip from '@renderer/ui/ToolTip'
 import { t } from '@renderer/utils/utils'
+import { Command, filterCommands, maybeExpandCommand } from '@renderer/utils/commands'
 
 // Ensuring there is atleast one valid character, and no whitespaces this helps eradicate the white space as a message edge case
 const FormFieldsSchema = z.object({
@@ -35,7 +38,7 @@ type FormFieldsType = {
 }
 
 export const InputForm = ({ className, ...props }: ComponentProps<'form'>): React.ReactElement => {
-  const { register, handleSubmit, reset } = useForm<FormFieldsType>({
+  const { register, handleSubmit, reset, setValue, setFocus } = useForm<FormFieldsType>({
     resolver: zodResolver(FormFieldsSchema)
   })
   const [isLoading, promptReq] = usePrompt()
@@ -45,9 +48,32 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const context = useAtomValue(fileContextAtom)
   const activeTab = useAtomValue(activeTabAtom)
   const [isAutoComplete, setIsAutoComplete] = useState(false)
+  const [commandList, setCommandList] = useAtom(commandListAtom)
+  const [commandMatches, setCommandMatches] = useState<Command[]>([])
   const fileDrop = useAtomValue(fileDropAtom)
+
+  // Load the available slash commands once (from ~/.claude/commands, the LLocal
+  // commands folder, and the bundled examples) so the palette can suggest them.
+  useEffect(() => {
+    if (commandList.length > 0) return
+    window.api
+      .listCommands()
+      .then(setCommandList)
+      .catch(() => {
+        /* commands are optional — ignore load failures */
+      })
+  }, [])
+
   function handleClick(): void {
     setStopGenerating(pre => !pre)
+  }
+
+  // Insert the chosen command's invocation; the user then types any arguments
+  // after it, which are substituted into the template when the prompt is sent.
+  function handleSelectCommand(command: Command): void {
+    setValue('prompt', `/${command.name} `)
+    setCommandMatches([])
+    setFocus('prompt')
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
@@ -59,13 +85,26 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const onSubmit: SubmitHandler<FormFieldsType> = async (data) => {
     reset()
     setAutoCompleteList([])
+    setCommandMatches([])
     setSuggestions(pre => ({ ...pre, prompts: [] }))
-    await promptReq(data.prompt || '')
+    // Expand a leading `/command …` into its template before sending; plain
+    // prompts (and unknown slashes) pass through untouched.
+    const finalPrompt = maybeExpandCommand(data.prompt || '', commandList)
+    await promptReq(finalPrompt)
   }
 
   async function handleChange(e: ChangeEvent<HTMLTextAreaElement>): Promise<void> {
     const input = e.target.value;
-    if (input.trim().startsWith("/")) {
+
+    // While typing the command token (a leading `/word` with no space yet),
+    // suggest matching commands. This takes precedence over file mentions.
+    const commandTyping = input.match(/^\/([^\s]*)$/)
+    const matches = commandTyping ? filterCommands(commandList, commandTyping[1]) : []
+    setCommandMatches(matches)
+
+    // File-mention autocomplete (knowledge base) — kept as a fallback for when
+    // the slash doesn't match any command.
+    if (input.trim().startsWith("/") && matches.length === 0) {
       const list = await window.api.getVectorDbList();
       const typed = input.replace('/', ''); // this is to get whatever the user has typed after the /
       setAutoCompleteList(list.filter((val) => val.fileName.includes(typed)))
@@ -86,7 +125,9 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   //
   return (
     <div className='relative w-full md:max-w-[48rem] flex flex-col'>
-      {(isAutoComplete && autoCompleteList.length > 0) && <AutoComplete className='absolute -bottom-3 transform -translate-y-1/2' list={autoCompleteList} reset={reset} />}
+      {commandMatches.length > 0
+        ? <CommandPalette className='absolute -bottom-3 transform -translate-y-1/2' commands={commandMatches} onSelectCommand={handleSelectCommand} />
+        : (isAutoComplete && autoCompleteList.length > 0) && <AutoComplete className='absolute -bottom-3 transform -translate-y-1/2' list={autoCompleteList} reset={reset} />}
       <AgentApproval />
       <div className='flex items-center justify-between gap-3 mb-1 px-2 flex-wrap'>
         <div className='flex items-center gap-3 flex-wrap'>
