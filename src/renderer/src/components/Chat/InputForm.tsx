@@ -18,6 +18,7 @@ import { ContextInfo } from './ContextInfo'
 import { GitPanel } from './GitPanel'
 import { WorkspaceFolder } from './WorkspaceFolder'
 import { AgentModeSelector } from './AgentModeSelector'
+import { EffortSelector } from './EffortSelector'
 import { AgentApproval } from './AgentApproval'
 import { AutoComplete } from './AutoComplete'
 import { CommandPalette } from './CommandPalette'
@@ -132,6 +133,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
       <div className='flex items-center justify-between gap-3 mb-1 px-2 flex-wrap'>
         <div className='flex items-center gap-3 flex-wrap'>
           {activeTab === 'agent' && <AgentModeSelector />}
+          {activeTab === 'chat' && <EffortSelector />}
           <WorkspaceFolder />
           <GitPanel />
         </div>

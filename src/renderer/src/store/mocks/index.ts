@@ -50,6 +50,8 @@ export const activeTabAtom = atomWithStorage<appTab>('activeTab', 'chat')
 export type agentMode = 'manual' | 'acceptEdits' | 'plan' | 'auto' // manual = approve every action; acceptEdits = auto-write files but confirm commands; plan = read-only; auto = run everything
 export const agentModeAtom = atomWithStorage<agentMode>('agentMode', 'manual')
 export const agentApprovalAtom = atom<{ tool: string; args: Record<string, unknown> } | null>(null) // pending mutating action awaiting user approval
+export type Effort = 'low' | 'medium' | 'high' // controls how many searches DeepResearch runs
+export const effortAtom = atomWithStorage<Effort>('researchEffort', 'medium')
 export const knowledgeBaseAtom = atom<getVectorDb[]>([]) // For storing the list of vector db's
 export const commandListAtom = atom<Command[]>([]) // Claude Code style slash commands (~/.claude/commands, bundled, etc.)
 export const modelListAtom = atom<listModels[]>(JSON.parse(localStorage.getItem('modelList') || '[]') as listModels[]) // Storing List of Models in Local Storage
