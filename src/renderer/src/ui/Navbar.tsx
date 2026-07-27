@@ -20,7 +20,7 @@ export const Navbar = ({
   ...props
 }: ComponentProps<'div'>): React.ReactElement => {
   return (
-    <Card className={cn('flex w-fit max-w-[92vw] gap-2 items-center p-3 px-4 overflow-x-auto',className)} {...props}>
+    <Card className={cn('flex w-fit max-w-[92vw] gap-2 items-center p-3 px-4 overflow-x-auto lg:max-w-none lg:overflow-visible',className)} {...props}>
       {children}
     </Card>
   )
