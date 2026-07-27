@@ -27,10 +27,12 @@ import { AgentApproval } from './AgentApproval'
 import { AutoComplete } from './AutoComplete'
 import { CommandPalette } from './CommandPalette'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { activeTabAtom, commandListAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
+import { activeTabAtom, agentModeAtom, commandListAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
 import ToolTip from '@renderer/ui/ToolTip'
 import { t } from '@renderer/utils/utils'
 import { Command, filterCommands, maybeExpandCommand } from '@renderer/utils/commands'
+import { toast } from 'sonner'
+import type { Task } from '../../../../shared/schedule'
 
 // Ensuring there is atleast one valid character, and no whitespaces this helps eradicate the white space as a message edge case
 const FormFieldsSchema = z.object({
@@ -57,6 +59,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const [commandMatches, setCommandMatches] = useState<Command[]>([])
   const [showTerminal, setShowTerminal] = useState(false)
   const fileDrop = useAtomValue(fileDropAtom)
+  const agentMode = useAtomValue(agentModeAtom)
 
   // Load the available slash commands once (from ~/.claude/commands, the LLocal
   // commands folder, and the bundled examples) so the palette can suggest them.
@@ -69,6 +72,51 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
         /* commands are optional — ignore load failures */
       })
   }, [])
+
+  // Keep the main-process scheduler informed of the live agent mode so its
+  // "unattended only in Auto" safety gate re-checks against the current value.
+  useEffect(() => {
+    window.api.setScheduleAgentMode(agentMode).catch(() => {
+      /* scheduler is optional — ignore if unavailable */
+    })
+  }, [agentMode])
+
+  // React to a scheduled task the main process decided is due. Unattended tasks
+  // only reach here in Auto mode (gated in main); we re-check defensively before
+  // auto-running. Attended tasks just prefill the composer for the user.
+  useEffect(() => {
+    const expand = (task: Task): string => {
+      if (task.kind !== 'command') return task.payload
+      const invocation = task.payload.trim().startsWith('/') ? task.payload.trim() : `/${task.payload.trim()}`
+      return maybeExpandCommand(invocation, commandList)
+    }
+
+    const offFire = window.api.onScheduleFire((task) => {
+      const prompt = expand(task)
+      if (task.unattended) {
+        if (agentMode !== 'auto') {
+          toast.error(t('Unattended task requires Auto agent mode'))
+          return
+        }
+        toast.info(`${t('Running scheduled task')}: ${task.name}`)
+        promptReq(prompt)
+      } else {
+        setValue('prompt', prompt)
+        setFocus('prompt')
+        toast.info(`${t('Scheduled task ready to send')}: ${task.name}`)
+      }
+    })
+
+    const offNotice = window.api.onScheduleNotice(({ level, message }) => {
+      const fn = level === 'warning' ? toast.warning : toast[level] ?? toast.info
+      fn(message)
+    })
+
+    return () => {
+      offFire()
+      offNotice()
+    }
+  }, [agentMode, commandList])
 
   function handleClick(): void {
     setStopGenerating(pre => !pre)

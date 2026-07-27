@@ -1,8 +1,14 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import type { AgentMode, Task } from '../shared/schedule'
 
 interface webSearchType {
   prompt: string
   sources: string
+}
+
+interface ScheduleNotice {
+  level: 'info' | 'success' | 'error' | 'warning'
+  message: string
 }
 
 interface addKnowledgeType {
@@ -62,7 +68,14 @@ declare global {
       sendTerminalInput: (sessionId: string, data: string) => Promise<boolean>,
       killTerminal: (sessionId: string) => Promise<boolean>,
       onTerminalData: (callback: (payload: { sessionId: string; chunk: string }) => void) => () => void,
-      onTerminalExit: (callback: (payload: { sessionId: string; code: number | null }) => void) => () => void
+      onTerminalExit: (callback: (payload: { sessionId: string; code: number | null }) => void) => () => void,
+      listSchedules: () => Promise<Task[]>,
+      saveSchedule: (task: Task) => Promise<Task[]>,
+      deleteSchedule: (id: string) => Promise<Task[]>,
+      runScheduleNow: (id: string) => Promise<boolean>,
+      setScheduleAgentMode: (mode: AgentMode) => Promise<void>,
+      onScheduleFire: (cb: (task: Task) => void) => () => void,
+      onScheduleNotice: (cb: (notice: ScheduleNotice) => void) => () => void
     }
   }
 }

@@ -25,6 +25,7 @@ import i18n from './lib/localization/i18n'
 import { fork } from 'child_process'
 import ttsPath from "./workers/tts.ts?modulePath"
 import { createPath } from './utils/utils'
+import { initScheduler } from './scheduler'
 
 // Handling dynamic imports the shell-path module, provides asynchronous functions
 (async (): Promise<void> => {
@@ -443,6 +444,11 @@ app.whenReady().then(() => {
     }
     return await runService()
   })
+
+  // ---- Scheduled / unattended tasks ----
+  // Timing + the "unattended only in Auto mode" safety gate live in the main
+  // process (src/main/scheduler.ts); execution is delegated to the renderer.
+  initScheduler(() => BrowserWindow.getAllWindows()[0] ?? null)
 
 
   createWindow()
