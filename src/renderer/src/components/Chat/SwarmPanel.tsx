@@ -5,6 +5,7 @@ import { LuNetwork, LuPlay, LuSquare, LuSparkles, LuPlus, LuTrash2 } from 'react
 import {
   agentApprovalAtom,
   agentModeAtom,
+  modelListAtom,
   prefModelAtom,
   workingFolderAtom
 } from '@renderer/store/mocks'
@@ -50,6 +51,7 @@ function blankSubtask(i: number): Subtask {
 export const SwarmPanel = ({ className, ...props }: ComponentProps<'div'>): React.ReactElement => {
   const folder = useAtomValue(workingFolderAtom)
   const model = useAtomValue(prefModelAtom)
+  const modelList = useAtomValue(modelListAtom)
   const mode = useAtomValue(agentModeAtom)
   const setApproval = useSetAtom(agentApprovalAtom)
   const { getStructuredResponse } = useStructureOutputs()
@@ -251,6 +253,14 @@ export const SwarmPanel = ({ className, ...props }: ComponentProps<'div'>): Reac
                     className="bg-transparent outline-none font-medium flex-1"
                   />
                 )}
+                {sub.model && (
+                  <span
+                    className="max-w-[9rem] shrink-0 truncate rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] opacity-70 dark:bg-white/10"
+                    title={sub.model}
+                  >
+                    {sub.model}
+                  </span>
+                )}
                 <span className={cn('text-xs', STATUS_STYLE[sub.status])}>{t(sub.status)}</span>
                 {!running && (
                   <button onClick={() => remove(i)} title={t('Remove')} className="opacity-40 hover:opacity-100">
@@ -288,6 +298,22 @@ export const SwarmPanel = ({ className, ...props }: ComponentProps<'div'>): Reac
                       className={cn(fieldClass, 'text-xs')}
                     />
                   </div>
+                  {/* Optional per-subtask model so each can run on the model that fits it best. */}
+                  <select
+                    value={sub.model ?? ''}
+                    onChange={(e) => patch(i, 'model', e.target.value)}
+                    className={cn(fieldClass, 'text-xs')}
+                    title={t('Model for this subtask')}
+                  >
+                    <option value="" className="text-black">
+                      {t('Default model')} {model ? `(${model})` : ''}
+                    </option>
+                    {modelList.map((m) => (
+                      <option key={m.modelName} value={m.modelName} className="text-black">
+                        {m.modelName}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
             </div>
