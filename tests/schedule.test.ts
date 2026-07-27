@@ -6,6 +6,7 @@ import {
   isUnattendedAllowed,
   canRunTask,
   isDue,
+  firedTaskAction,
   CronError,
   type Task,
   type AgentMode
@@ -234,5 +235,43 @@ describe('canRunTask gate', () => {
     const t = task({ cron: '30 10 * * *', unattended: false })
     const lastRun = new Date(2026, 0, 1, 10, 30, 0)
     expect(canRunTask(t, { agentMode: 'auto', now, lastRun })).toBe(false)
+  })
+})
+
+describe('firedTaskAction (renderer fire decision + done-notification gate)', () => {
+  const MODES: AgentMode[] = ['manual', 'acceptEdits', 'plan', 'auto']
+
+  it('prefills an attended task in every agent mode (never runs, never blocked)', () => {
+    for (const mode of MODES) {
+      expect(firedTaskAction(task({ cron: '* * * * *', unattended: false }), mode)).toBe('prefill')
+    }
+  })
+
+  it('runs an unattended task only in Auto mode', () => {
+    expect(firedTaskAction(task({ cron: '* * * * *', unattended: true }), 'auto')).toBe('run')
+  })
+
+  it('blocks an unattended task in every non-Auto mode', () => {
+    for (const mode of MODES.filter((m) => m !== 'auto')) {
+      expect(firedTaskAction(task({ cron: '* * * * *', unattended: true }), mode)).toBe('blocked')
+    }
+  })
+
+  it("'run' is the only action that completes, so only it raises scheduled-task-done", () => {
+    // The renderer fires the notification exactly on the 'run' branch. Assert the
+    // mapping the wiring relies on: unattended+auto => run (notifies), everything
+    // else => prefill/blocked (no completion, no notification).
+    const attended = task({ cron: '* * * * *', unattended: false })
+    const unattended = task({ cron: '* * * * *', unattended: true })
+    expect(firedTaskAction(unattended, 'auto')).toBe('run')
+    expect(firedTaskAction(unattended, 'manual')).not.toBe('run')
+    expect(firedTaskAction(attended, 'auto')).not.toBe('run')
+  })
+
+  it('agrees with the isUnattendedAllowed safety gate', () => {
+    for (const mode of MODES) {
+      const action = firedTaskAction(task({ cron: '* * * * *', unattended: true }), mode)
+      expect(action === 'run').toBe(isUnattendedAllowed(mode))
+    }
   })
 })

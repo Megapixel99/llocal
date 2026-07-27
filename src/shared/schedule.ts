@@ -232,6 +232,24 @@ export function isUnattendedAllowed(agentMode: AgentMode): boolean {
 }
 
 /**
+ * What the renderer should do when the main-process scheduler fires a task:
+ *   - 'prefill' — attended task: drop its prompt into the composer for the user;
+ *   - 'run'     — unattended task allowed to run autonomously (agent mode 'auto');
+ *   - 'blocked' — unattended task refused because the mode isn't 'auto' (the same
+ *                 safety gate as `isUnattendedAllowed`, re-checked defensively in
+ *                 the renderer since the mode can change between fire and handling).
+ *
+ * Only a task that actually RUNS ('run') completes, so it is the one that should
+ * raise the 'scheduled-task-done' notification once its agent run finishes.
+ */
+export type FiredTaskAction = 'run' | 'prefill' | 'blocked'
+
+export function firedTaskAction(task: Task, agentMode: AgentMode): FiredTaskAction {
+  if (!task.unattended) return 'prefill'
+  return isUnattendedAllowed(agentMode) ? 'run' : 'blocked'
+}
+
+/**
  * Decide whether a task should fire right now.
  *
  * A task runs when it is ENABLED and DUE (its cron produced a fire time at or

@@ -28,12 +28,12 @@ import { AgentApproval } from './AgentApproval'
 import { AutoComplete } from './AutoComplete'
 import { CommandPalette } from './CommandPalette'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { activeTabAtom, agentModeAtom, commandListAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
+import { activeTabAtom, agentModeAtom, commandListAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, notificationPrefsAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
 import ToolTip from '@renderer/ui/ToolTip'
 import { t } from '@renderer/utils/utils'
 import { Command, filterCommands, maybeExpandCommand } from '@renderer/utils/commands'
 import { toast } from 'sonner'
-import type { Task } from '../../../../shared/schedule'
+import { firedTaskAction, type Task } from '../../../../shared/schedule'
 
 // Ensuring there is atleast one valid character, and no whitespaces this helps eradicate the white space as a message edge case
 const FormFieldsSchema = z.object({
@@ -62,6 +62,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const [showSwarm, setShowSwarm] = useState(false)
   const fileDrop = useAtomValue(fileDropAtom)
   const agentMode = useAtomValue(agentModeAtom)
+  const notificationPrefs = useAtomValue(notificationPrefsAtom)
 
   // Load the available slash commands once (from ~/.claude/commands, the LLocal
   // commands folder, and the bundled examples) so the palette can suggest them.
@@ -93,19 +94,24 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
       return maybeExpandCommand(invocation, commandList)
     }
 
-    const offFire = window.api.onScheduleFire((task) => {
+    const offFire = window.api.onScheduleFire(async (task) => {
       const prompt = expand(task)
-      if (task.unattended) {
-        if (agentMode !== 'auto') {
+      switch (firedTaskAction(task, agentMode)) {
+        case 'blocked':
           toast.error(t('Unattended task requires Auto agent mode'))
-          return
-        }
-        toast.info(`${t('Running scheduled task')}: ${task.name}`)
-        promptReq(prompt)
-      } else {
-        setValue('prompt', prompt)
-        setFocus('prompt')
-        toast.info(`${t('Scheduled task ready to send')}: ${task.name}`)
+          break
+        case 'run':
+          toast.info(`${t('Running scheduled task')}: ${task.name}`)
+          // Await the autonomous run, then surface a native "done" notification.
+          // The unattended run is the only path that actually completes here.
+          await promptReq(prompt)
+          window.api?.notify?.('scheduled-task-done', { taskName: task.name }, notificationPrefs)
+          break
+        case 'prefill':
+          setValue('prompt', prompt)
+          setFocus('prompt')
+          toast.info(`${t('Scheduled task ready to send')}: ${task.name}`)
+          break
       }
     })
 
@@ -118,7 +124,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
       offFire()
       offNotice()
     }
-  }, [agentMode, commandList])
+  }, [agentMode, commandList, notificationPrefs])
 
   function handleClick(): void {
     setStopGenerating(pre => !pre)
