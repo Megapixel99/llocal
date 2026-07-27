@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
-import { generatingAtom, mascotEnabledAtom } from '@renderer/store/mocks'
+import { generatingAtom, mascotEnabledAtom, mascotPhaseAtom } from '@renderer/store/mocks'
 import {
   computeMascotState,
   pickIdleActivity,
@@ -11,14 +11,16 @@ import {
 import './Mascot.css'
 
 /**
- * "Lo" — a tiny composer mascot that sits above the input box. It types on a
- * little laptop while a prompt is being answered, cheers when a run finishes,
- * and idles the rest of the time (occasionally peeking around or batting a
- * ball). All motion is CSS; this component only decides the state (via the pure
+ * "Lo" — a tiny composer mascot that sits above the input box. While a prompt is
+ * in flight it reads a little book when the model is thinking/researching and
+ * types on a tiny laptop when it's writing the answer; it cheers when a run
+ * finishes, and idles the rest of the time (peeking around or batting a ball).
+ * All motion is CSS; this component only decides the state (via the pure
  * src/shared/mascot core) and paints the SVG. Opt-out via Preferences.
  */
 export const Mascot = ({ className }: { className?: string }): React.ReactElement | null => {
   const busy = useAtomValue(generatingAtom)
+  const phase = useAtomValue(mascotPhaseAtom)
   const enabled = useAtomValue(mascotEnabledAtom)
 
   const [now, setNow] = useState(() => Date.now())
@@ -46,6 +48,7 @@ export const Mascot = ({ className }: { className?: string }): React.ReactElemen
 
   const state: MascotState = computeMascotState({
     busy,
+    phase: phase ?? undefined,
     celebrateUntil: celebrateUntilRef.current,
     now
   })
@@ -60,8 +63,8 @@ export const Mascot = ({ className }: { className?: string }): React.ReactElemen
       aria-hidden="true"
     >
       <svg viewBox="0 0 72 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-        {/* thinking: thought dots above the head */}
-        <g className="m-only-think">
+        {/* reading (thinking/researching): thought dots above the head */}
+        <g className="m-only-read">
           <circle className="m-dot" cx="30" cy="8" r="1.6" fill="#8aa0ff" />
           <circle className="m-dot m-dot-2" cx="36" cy="6" r="2" fill="#8aa0ff" />
           <circle className="m-dot m-dot-3" cx="43" cy="8" r="2.4" fill="#8aa0ff" />
@@ -98,13 +101,38 @@ export const Mascot = ({ className }: { className?: string }): React.ReactElemen
             <path d="M33 37c1.4 1.4 4.6 1.4 6 0" stroke="#26304d" strokeWidth="1.6" strokeLinecap="round" fill="none" />
           </g>
 
-          {/* thinking: a tiny laptop the mascot types on */}
-          <g className="m-only-think">
-            <rect x="25" y="40" width="22" height="12" rx="1.5" fill="#334155" />
-            <rect x="26.5" y="41.5" width="19" height="9" rx="1" fill="#7f9bff" />
-            <path d="M23 52h26l1.5 3H21.5z" fill="#cbd5e1" />
-            <rect className="m-hand m-hand-l" x="29" y="49.5" width="4" height="3" rx="1.5" fill="#5570e6" />
-            <rect className="m-hand m-hand-r" x="39" y="49.5" width="4" height="3" rx="1.5" fill="#5570e6" />
+          {/* responding: the laptop faces LO (away from us), so we see the back
+              of the lid; the keyboard base sits behind it and Lo reaches over the
+              top to type — hands peek over the lid's top edge and tap. */}
+          <g className="m-only-respond">
+            {/* keyboard base behind the lid — only its near front edge shows */}
+            <path d="M25 47.5 H47 L49.5 51 H22.5 Z" fill="#c7cee0" />
+            <rect x="24.5" y="46.6" width="23" height="1.6" rx="0.8" fill="#b0b8d0" />
+            {/* screen lid, back panel facing the viewer */}
+            <rect x="28.5" y="40" width="15" height="7.2" rx="1.6" fill="#8b95bb" />
+            <circle cx="36" cy="43.6" r="1.5" fill="#aab2d4" />
+            {/* Lo's hands reaching over the top edge onto the keyboard behind */}
+            <rect className="m-hand m-hand-l" x="30" y="38.6" width="4.3" height="2.8" rx="1.4" fill="#5570e6" />
+            <rect className="m-hand m-hand-r" x="37.7" y="38.6" width="4.3" height="2.8" rx="1.4" fill="#5570e6" />
+          </g>
+
+          {/* reading (thinking/researching): a little open book Lo scans */}
+          <g className="m-only-read m-book">
+            {/* pages */}
+            <path d="M36 45 L23 46.6 L24.2 51.4 L36 50 Z" fill="#eef2ff" stroke="#b9c2e4" strokeWidth="0.5" />
+            <path d="M36 45 L49 46.6 L47.8 51.4 L36 50 Z" fill="#f8faff" stroke="#b9c2e4" strokeWidth="0.5" />
+            {/* spine */}
+            <line x1="36" y1="45" x2="36" y2="50" stroke="#9aa6cf" strokeWidth="0.8" />
+            {/* faint text lines */}
+            <line x1="26.5" y1="47.4" x2="33.5" y2="46.9" stroke="#c2cbe6" strokeWidth="0.6" />
+            <line x1="26.7" y1="48.7" x2="33.5" y2="48.2" stroke="#c2cbe6" strokeWidth="0.6" />
+            <line x1="38.5" y1="46.9" x2="45.5" y2="47.4" stroke="#c2cbe6" strokeWidth="0.6" />
+            <line x1="38.5" y1="48.2" x2="45.3" y2="48.7" stroke="#c2cbe6" strokeWidth="0.6" />
+            {/* a page that turns now and then */}
+            <path className="m-page" d="M36 45 L48 46.5 L47 51.2 L36 50 Z" fill="#ffffff" stroke="#b9c2e4" strokeWidth="0.4" />
+            {/* little hands holding the book */}
+            <rect x="21.5" y="49.5" width="4" height="3" rx="1.5" fill="#5570e6" />
+            <rect x="46.5" y="49.5" width="4" height="3" rx="1.5" fill="#5570e6" />
           </g>
         </g>
 
