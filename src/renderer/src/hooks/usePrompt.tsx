@@ -10,6 +10,7 @@ import {
   generatingAtom,
   imageAttatchmentAtom,
   prefModelAtom,
+  sessionMetricsAtom,
   stopGeneratingAtom,
   streamingAtom,
   suggestionsAtom,
@@ -66,6 +67,7 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
   const [suggestions, setSuggestions] = useAtom(suggestionsAtom)
   const setGenerating = useSetAtom(generatingAtom) // drives the thinking animation while a response is in-flight
   const setContextUsage = useSetAtom(contextUsageAtom) // tokens used vs the model's context window
+  const setSessionMetrics = useSetAtom(sessionMetricsAtom) // per-message analytics (tokens, tokens/sec, tools)
   const activeTab = useAtomValue(activeTabAtom) // chat | agent
   const agentMode = useAtomValue(agentModeAtom) // manual | acceptEdits | plan | auto
   const workingFolder = useAtomValue(workingFolderAtom)
@@ -134,7 +136,20 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
             mutating: new Set(mutating),
             requestApproval: makeApprovalRequester(setApproval),
             onProgress: (t) => setStream(t),
-            shouldStop: () => stopGeneratingRef.current
+            shouldStop: () => stopGeneratingRef.current,
+            onToolCall: ({ tool, durationMs }) =>
+              setSessionMetrics((pre) => [
+                ...pre,
+                {
+                  role: 'tool',
+                  promptTokens: 0,
+                  responseTokens: 0,
+                  evalDurationNs: 0,
+                  timestamp: Date.now(),
+                  tool,
+                  durationMs
+                }
+              ])
           })
           const ai = { role: 'assistant', content: transcript }
           addChat([...chat, initialUser, ai])
@@ -287,6 +302,17 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
               ...pre,
               used: (part.prompt_eval_count ?? 0) + (part.eval_count ?? 0)
             }))
+            // record this turn's metrics for the analytics panel (tokens + throughput)
+            setSessionMetrics((pre) => [
+              ...pre,
+              {
+                role: 'assistant',
+                promptTokens: part.prompt_eval_count ?? 0,
+                responseTokens: part.eval_count ?? 0,
+                evalDurationNs: part.eval_duration ?? 0,
+                timestamp: Date.now()
+              }
+            ])
           }
           // defining the ai assistant object which contains the response
           let ai = { role: 'assistant', content: display }

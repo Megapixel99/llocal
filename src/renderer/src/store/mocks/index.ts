@@ -1,5 +1,6 @@
 import { listModels } from '@renderer/hooks/useOllama'
 import type { Command } from '@renderer/utils/commands'
+import type { MessageMetric } from '../../../../shared/analytics'
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 
@@ -61,6 +62,7 @@ export const suggestionsAtom = atom<suggestions>({ show: JSON.parse(localStorage
 export const fileDropAtom = atom<boolean>(false)
 export const titleUpdateAtom = atom<number>(0)
 export const contextUsageAtom = atom<{ used: number; total: number }>({ used: 0, total: 0 }) // tokens used vs the model's context window
+export const sessionMetricsAtom = atom<MessageMetric[]>([]) // per-message token/throughput/tool metrics for the current session (in-memory; drives the analytics panel)
 
 // User Preferences
 const url = new URL('/src/assets/themes/galaxia.svg', import.meta.url).href

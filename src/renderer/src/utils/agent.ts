@@ -62,8 +62,10 @@ export async function runAgentLoop(opts: {
   requestApproval: (req: AgentApproval) => Promise<boolean>
   onProgress: (transcript: string) => void
   shouldStop: () => boolean
+  /** Optional: fired after each tool runs, for the analytics timeline. */
+  onToolCall?: (call: { tool: string; durationMs: number }) => void
 }): Promise<string> {
-  const { model, root, mode, mutating, requestApproval, onProgress, shouldStop } = opts
+  const { model, root, mode, mutating, requestApproval, onProgress, shouldStop, onToolCall } = opts
 
   // In plan mode the model must not modify anything, so we don't even offer the mutating tools.
   const tools =
@@ -121,6 +123,7 @@ Work step by step: read/list/search to understand before ${mode === 'plan' ? 'pl
       const args: Record<string, unknown> = call.function?.arguments ?? {}
       transcript += toolCallBlock(name, args)
       onProgress(transcript)
+      const toolStart = Date.now()
 
       const run = async (): Promise<string> => {
         try {
@@ -151,6 +154,7 @@ Work step by step: read/list/search to understand before ${mode === 'plan' ? 'pl
         }
       }
 
+      onToolCall?.({ tool: name, durationMs: Date.now() - toolStart })
       transcript += resultBlock(result)
       onProgress(transcript)
       working.push({ role: 'tool', content: result })

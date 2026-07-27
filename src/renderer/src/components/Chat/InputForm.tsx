@@ -5,7 +5,7 @@ import React, {
   // useCallback
 } from 'react'
 import { twMerge } from 'tailwind-merge'
-import { PiPaperPlaneRightFill, PiStopCircleBold } from 'react-icons/pi'
+import { PiChartBarBold, PiPaperPlaneRightFill, PiStopCircleBold } from 'react-icons/pi'
 import { SubmitHandler, useForm } from 'react-hook-form'
 import { usePrompt } from '@renderer/hooks/usePrompt'
 import { TextArea } from '@renderer/ui/TextArea'
@@ -15,6 +15,8 @@ import { Button } from '@renderer/ui/Button'
 import { MoreButton } from './MoreButton'
 import { ContextCard } from './ContextCard'
 import { ContextInfo } from './ContextInfo'
+import { AnalyticsPanel } from './Analytics/AnalyticsPanel'
+import { Modal } from '@renderer/ui/Modal'
 import { GitPanel } from './GitPanel'
 import { WorkspaceFolder } from './WorkspaceFolder'
 import { AgentModeSelector } from './AgentModeSelector'
@@ -137,7 +139,20 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
           <WorkspaceFolder />
           <GitPanel />
         </div>
-        <ContextInfo />
+        <div className='flex items-center gap-2'>
+          <ContextInfo />
+          <Modal.Root>
+            <ToolTip tooltip={t('Session analytics')}>
+              <Modal.Trigger className='cursor-pointer text-base opacity-50 hover:opacity-100'>
+                <PiChartBarBold />
+              </Modal.Trigger>
+            </ToolTip>
+            <Modal.Overlay />
+            <Modal.Content className='max-h-[80vh] overflow-y-auto'>
+              <AnalyticsPanel />
+            </Modal.Content>
+          </Modal.Root>
+        </div>
       </div>
       <ToolTip className='self-end w-fit h-full m-1 mr-5' tooltip={context.length > 1 ? `${context.length} ${t("files")}` : `${context.length} ${t("file")}`}>
         <ContextCard className='' />
