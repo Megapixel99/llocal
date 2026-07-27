@@ -9,7 +9,9 @@ import { useOllama } from '@renderer/hooks/useOllama'
 import { HiMiniSparkles } from "react-icons/hi2";
 import { FaGlobeAsia } from "react-icons/fa";
 import { LuImage } from 'react-icons/lu'
+import { PiBooksBold } from 'react-icons/pi'
 import { t } from '@renderer/utils/utils'
+import { ModelCatalogue } from './ModelCatalogue'
 
 type FormFields = {
   model?: string
@@ -18,6 +20,7 @@ type FormFields = {
 export const PullModel = ({ className, ...props }: ComponentProps<'form'>): React.ReactElement => {
   const { register, handleSubmit, reset } = useForm<FormFields>()
   const [isLoading, setLoading] = useState(false)
+  const [browsing, setBrowsing] = useState(false)
   const breadcrumbs = ['deepscaler', 'phi3', 'llama3.2']
   const [, setSelectedBreadcrumb] = useState('')
   const { pullModel } = useOllama()
@@ -38,7 +41,17 @@ export const PullModel = ({ className, ...props }: ComponentProps<'form'>): Reac
   }
   return (
     <div className="flex flex-col gap-2 justify-center">
-      <h1 className="font-thin">Pull a new model :</h1>
+      <div className="flex items-center justify-between gap-2 w-96 max-w-full">
+        <h1 className="font-thin">Pull a new model :</h1>
+        <Button
+          type="button"
+          variant="link"
+          onClick={() => setBrowsing((v) => !v)}
+          className="flex items-center gap-1 text-xs"
+        >
+          <PiBooksBold /> {browsing ? t('Hide catalogue') : t('Browse catalogue')}
+        </Button>
+      </div>
       <form
         onSubmit={handleSubmit(onSubmit)} // don't quite understand the type error here
         className={twMerge('relative h-full', className)}
@@ -95,6 +108,7 @@ export const PullModel = ({ className, ...props }: ComponentProps<'form'>): Reac
           moondream ({t("supports")} <LuImage /> {t("images")})
         </p>
       </Card>
+      {browsing && <ModelCatalogue className="mt-2 w-full max-w-2xl" />}
     </div>
   )
 }
