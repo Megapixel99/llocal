@@ -10,6 +10,8 @@ import { KnowLedgeBase } from './KnowledgeBase'
 import Preferences from './Preferences'
 import { t } from '@renderer/utils/utils'
 import { ChooseLanguage } from './ChooseLanguage'
+import { ServerSettings } from './ServerSettings'
+import { RepoConsole } from './RepoConsole'
 
 export const Categories = (): React.ReactElement => {
   // to maintain state of what is selected, this helps with choosing what to render
@@ -34,12 +36,16 @@ export const Categories = (): React.ReactElement => {
   )
 
   map.set('knowledgeBase', <KnowLedgeBase />)
+  map.set('server', <ServerSettings />)
+  map.set('repo', <RepoConsole />)
   // map.set('experimental', <Preferences />)
   return (
     <>
       <Navbar className='sticky'>
         <NavbarItem className={`${selected == 'settings' && 'opacity-100'}`} onClick={() => setSelected('settings')}>{t("Settings")}</NavbarItem>
         <NavbarItem className={`${selected == 'knowledgeBase' && 'opacity-100'}`} onClick={() => setSelected('knowledgeBase')}>{t("Knowledge Base")}</NavbarItem>
+        <NavbarItem className={`${selected == 'server' && 'opacity-100'}`} onClick={() => setSelected('server')}>{t("Server & Repository")}</NavbarItem>
+        <NavbarItem className={`${selected == 'repo' && 'opacity-100'}`} onClick={() => setSelected('repo')}>{t("Repo & Console")}</NavbarItem>
         {/* <NavbarItem className={`${selected == 'experimental' && 'opacity-100'}`} onClick={() => setSelected('experimental')}>Experimental</NavbarItem> */}
       </Navbar>
       {map.get(selected)}

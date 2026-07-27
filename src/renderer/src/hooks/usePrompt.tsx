@@ -8,7 +8,7 @@ import {
   streamingAtom,
   suggestionsAtom,
 } from '@renderer/store/mocks'
-import { ollama } from '@renderer/utils/ollama'
+import { getOllama } from '@renderer/utils/ollama'
 // import axios from 'axios'
 import { useAtom, useSetAtom } from 'jotai'
 import { useEffect, useRef, useState } from 'react'
@@ -64,6 +64,8 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
 
   const promptReq = async (prompt: string): Promise<void> => {
     setLoading(true)
+    // Capture a single client for this request so chat + abort target the same instance.
+    const ollama = getOllama()
     try {
       let user: userContentType = { role: 'user', content: prompt }
       const initialUser = user

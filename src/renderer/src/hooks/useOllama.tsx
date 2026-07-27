@@ -1,4 +1,4 @@
-import { helperOllama } from "@renderer/utils/ollama"
+import { getHelperOllama } from "@renderer/utils/ollama"
 import { StatusResponse } from "ollama"
 import { useLocal } from "./useLocal"
 import { toast } from "sonner"
@@ -22,7 +22,7 @@ export const useOllama = (): useOllamaReturn => {
   const { setModelChoice, setList } = useLocal()
 
   const listModels = async (): Promise<listModels[]> => {
-    const list = await helperOllama.list()
+    const list = await getHelperOllama().list()
     const response: listModels[] = []
     list.models.forEach((val) => { response.push({ modelName: val.name, modelParameters: val.details.parameter_size }) })
     // for updating the local storage
@@ -30,7 +30,7 @@ export const useOllama = (): useOllamaReturn => {
   }
 
   const deleteModel = async (modelName: string): Promise<StatusResponse> => {
-    const response = await helperOllama.delete({ model: modelName })
+    const response = await getHelperOllama().delete({ model: modelName })
     return response
   }
 
@@ -38,6 +38,8 @@ export const useOllama = (): useOllamaReturn => {
     let toastId: string | number | undefined = undefined
 
     let abort = false
+    // Capture one client so pull + abort target the same instance.
+    const helperOllama = getHelperOllama()
     try {
       let currentDigestDone = false
       // Setting the toast Id

@@ -1,11 +1,45 @@
 import { Ollama } from 'ollama/browser'
 import { toast } from 'sonner'
 import { t } from './utils'
+import { getOllamaBaseUrl } from '@renderer/platform/config'
 
-export const ollama = new Ollama({ host: 'http://localhost:11434' })
-// a new ollama client is needed so that when aborting a pull, the on-going chat does not get aborted aswell or vice-versa
-// this is also a hygeine practice, where all functions other than chat should use helper-client just to decouple the use-cases
-export const helperOllama = new Ollama({ host: 'http://localhost:11434' })
+// The Ollama client stores its host at construction time, so to support a
+// user-configurable server (a remote IP on mobile, or a custom host on desktop)
+// we build the clients lazily from the current config and rebuild them whenever
+// the configured host changes.
+let cachedHost = ''
+let _ollama: Ollama | null = null
+let _helperOllama: Ollama | null = null
+
+function ensureClients(): void {
+  const host = getOllamaBaseUrl()
+  if (!_ollama || !_helperOllama || host !== cachedHost) {
+    cachedHost = host
+    _ollama = new Ollama({ host })
+    // a separate client so that aborting a pull does not abort an on-going chat
+    // (or vice-versa); all non-chat calls should use the helper client.
+    _helperOllama = new Ollama({ host })
+  }
+}
+
+/** Chat/generate client, bound to the currently configured Ollama host. */
+export function getOllama(): Ollama {
+  ensureClients()
+  return _ollama as Ollama
+}
+
+/** Model-management client, decoupled from the chat client. */
+export function getHelperOllama(): Ollama {
+  ensureClients()
+  return _helperOllama as Ollama
+}
+
+/** Force the clients to be rebuilt after the configured host changes. */
+export function rebuildOllamaClients(): void {
+  _ollama = null
+  _helperOllama = null
+  ensureClients()
+}
 
 async function installOllama(): Promise<void> {
   toast.info(t("Please be patient with the Ollama installation, there are background process running to get the Ollama installer up and running for you! (Should take about a mintue)"))
