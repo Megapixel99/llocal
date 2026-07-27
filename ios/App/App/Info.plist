@@ -45,13 +45,17 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<!-- LLocal connects to a user-provided Ollama server and companion server,
-	     typically a plaintext-HTTP LAN address. Allow local networking so the
-	     app can reach them. For a remote HTTPS server this is unnecessary. -->
+	<!-- LLocal connects to a user-provided Ollama server and companion server. These are
+	     self-hosted and usually plaintext HTTP — on a LAN (192.168.x, .local) OR at a remote/
+	     public IP the user port-forwards to. NSAllowsLocalNetworking only covers LAN addresses,
+	     so a public-IP http server is blocked by ATS ("TypeError: Load failed"). Since the user
+	     chooses their own trusted endpoint, allow arbitrary cleartext loads too. -->
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>LLocal connects to your Ollama server and companion server on your local network.</string>
+	<string>LLocal connects to your Ollama server and companion server.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>

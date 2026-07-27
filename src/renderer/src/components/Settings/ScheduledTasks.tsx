@@ -5,6 +5,7 @@ import { LuPlay, LuTrash2, LuCheckCircle2, LuCircle } from 'react-icons/lu'
 import { Button } from '@renderer/ui/Button'
 import { t } from '@renderer/utils/utils'
 import { agentModeAtom } from '@renderer/store/mocks'
+import { isElectron } from '@renderer/platform/detect'
 import { isUnattendedAllowed, isValidCron, nextRun, type Task, type TaskKind } from '../../../../shared/schedule'
 
 const fieldClass =
@@ -95,6 +96,13 @@ export const ScheduledTasks = (): React.ReactElement => {
 
   return (
     <div className="flex flex-col gap-6 max-w-xl w-full">
+      {!isElectron() && (
+        // Scheduling needs a always-on background runner (the desktop app's main process); a phone
+        // can't guarantee that, so the tab is view-only here — be upfront rather than silently no-op.
+        <p className="rounded-xl bg-foreground/10 dark:bg-background/30 p-3 text-xs opacity-80">
+          {t('Scheduled tasks run in the desktop app, which stays running in the background. On mobile this tab is preview-only — tasks saved here won’t fire.')}
+        </p>
+      )}
       <section className="flex flex-col gap-3">
         <h2 className="text-lg">{draft.id ? t('Edit scheduled task') : t('New scheduled task')}</h2>
 

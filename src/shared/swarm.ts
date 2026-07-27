@@ -34,6 +34,12 @@ export interface Subtask {
   status: SubtaskStatus
   /** Final transcript / summary produced by the agent loop (once done or failed). */
   result?: string
+  /**
+   * Optional per-subtask model override, so each subtask can run on the model that best fits it
+   * (e.g. a tool-capable coder for edits, a lighter model for docs). Falls back to the swarm's
+   * default model when unset.
+   */
+  model?: string
 }
 
 /** Live scheduling state, kept by the orchestrator and passed to the pure schedulers. */
@@ -51,6 +57,11 @@ export interface SwarmSummary {
   results: { id: string; title: string; status: SubtaskStatus; result: string }[]
   /** A ready-to-display markdown summary (counts + per-task results). */
   text: string
+}
+
+/** The model a subtask runs on: its own override when set, otherwise the swarm's default model. */
+export function subtaskModel(task: Pick<Subtask, 'model'>, defaultModel: string): string {
+  return task.model?.trim() || defaultModel
 }
 
 /**

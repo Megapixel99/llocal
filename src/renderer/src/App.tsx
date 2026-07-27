@@ -56,9 +56,12 @@ function App(): JSX.Element {
           <div className="draggable absolute top-0 inset-x-0 h-5 z-50" aria-hidden="true" />
         )}
         <Toaster className='font-poppins text-base' richColors theme={theme} />
-        <Settings className="justify-between items-center gap-14 overflow-y-scroll">
+        {/* justify-start keeps the tab bar at a constant top position across pages (justify-between
+            vertically centered the content, so the tabs jumped as each page's height changed);
+            mt-auto keeps the version pinned to the bottom. */}
+        <Settings className="justify-start items-center gap-14 overflow-y-scroll">
           <Categories />
-          <GetVersion className='pt-20 lg:p-0' />
+          <GetVersion className='pt-20 lg:p-0 mt-auto' />
         </Settings>
         <Sidebar className="bg-foreground bg-opacity-20 dark:bg-background dark:bg-opacity-20 backdrop-blur-lg flex flex-col gap-5">
           <SidebarTabs />

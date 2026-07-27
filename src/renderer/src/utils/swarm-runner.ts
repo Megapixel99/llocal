@@ -4,6 +4,7 @@ import {
   validateGraph,
   nextBatch,
   aggregateResults,
+  subtaskModel,
   type Subtask,
   type SwarmSummary
 } from '../../../shared/swarm'
@@ -61,7 +62,8 @@ export async function runSwarm(opts: SwarmRunOptions): Promise<SwarmSummary> {
     task.status = 'running'
     emit()
     const promise = runAgentLoop({
-      model: opts.model,
+      // Per-subtask model override, falling back to the swarm's default model.
+      model: subtaskModel(task, opts.model),
       root: opts.root,
       mode: opts.mode,
       messages: [{ role: 'user', content: task.prompt }],

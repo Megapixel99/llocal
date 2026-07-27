@@ -5,6 +5,7 @@ import {
   nextBatch,
   aggregateResults,
   isComplete,
+  subtaskModel,
   type Subtask,
   type SwarmState
 } from '../src/shared/swarm'
@@ -283,5 +284,18 @@ describe('end-to-end scheduling simulation', () => {
     // a is first, d is last.
     expect(launchLog[0]).toEqual(['a'])
     expect(launchLog[launchLog.length - 1]).toEqual(['d'])
+  })
+})
+
+describe('subtaskModel', () => {
+  it('uses the subtask override when set', () => {
+    expect(subtaskModel(task({ id: 'a', model: 'qwen3-coder:30b' }), 'gemma4:e4b')).toBe(
+      'qwen3-coder:30b'
+    )
+  })
+
+  it('falls back to the default model when unset or blank', () => {
+    expect(subtaskModel(task({ id: 'a' }), 'gemma4:e4b')).toBe('gemma4:e4b')
+    expect(subtaskModel(task({ id: 'a', model: '   ' }), 'gemma4:e4b')).toBe('gemma4:e4b')
   })
 })

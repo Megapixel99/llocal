@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* The UI is tuned for desktop; on phones scale the rem base down a touch so text,
+   spacing and icons (all rem/em-based) aren't oversized. Desktop is unaffected. */
+@media (max-width: 640px) {
+  html {
+    font-size: 87.5%; /* 16px → 14px */
+  }
+}
+
 @font-face {
   font-family: 'Poppins';
   font-weight: 400;
