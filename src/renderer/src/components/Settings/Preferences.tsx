@@ -1,9 +1,9 @@
 import { useLocal } from "@renderer/hooks/useLocal";
-import { notificationPrefsAtom, suggestionsAtom, transparencyModeAtom } from "@renderer/store/mocks";
+import { mascotEnabledAtom, notificationPrefsAtom, suggestionsAtom, transparencyModeAtom } from "@renderer/store/mocks";
 import { BreadCrumb } from "@renderer/ui/BreadCrumb";
 import { Checkbox } from "@renderer/ui/Checkbox";
 import { cn, t } from "@renderer/utils/utils";
-import { useAtomValue } from "jotai";
+import { useAtomValue, useSetAtom } from "jotai";
 import { ComponentProps } from "react";
 import { toast } from "sonner";
 import { NOTIFICATION_EVENTS, NOTIFICATION_EVENT_LABELS } from "../../../../shared/notifications";
@@ -13,6 +13,8 @@ export default function Preferences({ className, ...props }: ComponentProps<'div
   const suggestions = useAtomValue(suggestionsAtom)
   const transparencyMode = useAtomValue(transparencyModeAtom)
   const notificationPrefs = useAtomValue(notificationPrefsAtom)
+  const mascotEnabled = useAtomValue(mascotEnabledAtom)
+  const setMascotEnabled = useSetAtom(mascotEnabledAtom)
   const { setShowSuggestion, setTransparency, setNotificationsEnabled, setNotificationEvent } = useLocal()
 
   // Handles multiple preferences
@@ -30,6 +32,10 @@ export default function Preferences({ className, ...props }: ComponentProps<'div
       <BreadCrumb className="flex justify-center items-center gap-2" onClick={() => handleClick(transparencyMode, setTransparency, 'Transparency Mode')}>
         <Checkbox isExternalState={true} externalState={transparencyMode} className="text-sm" />
         {t("Transparency Mode")}
+      </BreadCrumb>
+      <BreadCrumb className="flex justify-center items-center gap-2" onClick={() => handleClick(mascotEnabled, setMascotEnabled, 'Mascot')}>
+        <Checkbox isExternalState={true} externalState={mascotEnabled} className="text-sm" />
+        {t("Mascot")}
       </BreadCrumb>
     </div>
 

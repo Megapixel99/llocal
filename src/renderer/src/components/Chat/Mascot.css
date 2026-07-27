@@ -1,0 +1,110 @@
+/* Little composer mascot ("Lo"). All animation is pure CSS — no GSAP/JS tweens.
+   Visibility of the state-specific props (laptop, ball, sparkles) is toggled by
+   the data-state / data-activity attributes the component sets. */
+
+.llocal-mascot {
+  width: 72px;
+  height: 60px;
+  pointer-events: none;
+  user-select: none;
+  overflow: visible;
+}
+
+.llocal-mascot svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Give every transformed SVG node a local box so transform-origin behaves. */
+.llocal-mascot [class^='m-'] {
+  transform-box: fill-box;
+}
+
+/* ---- whole-body idle bob / thinking hunch / celebrate hop -------------- */
+.m-body {
+  transform-origin: 50% 100%;
+  animation: m-bob 3.2s ease-in-out infinite;
+}
+.llocal-mascot[data-state='thinking'] .m-body {
+  animation: m-hunch 0.9s ease-in-out infinite;
+}
+.llocal-mascot[data-state='celebrate'] .m-body {
+  animation: m-hop 0.5s cubic-bezier(0.3, 1.4, 0.6, 1) 2;
+}
+@keyframes m-bob {
+  0%, 100% { transform: translateY(0) }
+  50% { transform: translateY(-2.2px) }
+}
+@keyframes m-hunch {
+  0%, 100% { transform: translateY(0) rotate(0deg) }
+  50% { transform: translateY(0.6px) rotate(-1.2deg) }
+}
+@keyframes m-hop {
+  0%, 100% { transform: translateY(0) scale(1, 1) }
+  30% { transform: translateY(-9px) scale(0.94, 1.06) }
+  60% { transform: translateY(0) scale(1.06, 0.94) }
+}
+
+/* ---- blinking --------------------------------------------------------- */
+.m-eye {
+  transform-origin: 50% 50%;
+  animation: m-blink 4.6s infinite;
+}
+.m-eye.m-eye-2 { animation-delay: 0.06s }
+@keyframes m-blink {
+  0%, 92%, 100% { transform: scaleY(1) }
+  95% { transform: scaleY(0.1) }
+}
+
+/* ---- idle: peek left/right ------------------------------------------- */
+.llocal-mascot[data-activity='peek'] .m-face {
+  animation: m-peek 2.4s ease-in-out infinite;
+}
+@keyframes m-peek {
+  0%, 100% { transform: translateX(0) }
+  25% { transform: translateX(-2.4px) }
+  75% { transform: translateX(2.4px) }
+}
+
+/* ---- state-specific props: hidden unless their state is active -------- */
+.m-only-think, .m-only-play, .m-only-celebrate { visibility: hidden; }
+.llocal-mascot[data-state='thinking'] .m-only-think { visibility: visible; }
+.llocal-mascot[data-activity='play'] .m-only-play { visibility: visible; }
+.llocal-mascot[data-state='celebrate'] .m-only-celebrate { visibility: visible; }
+
+/* ---- thinking: typing hands + thought dots ---------------------------- */
+.m-hand { transform-origin: 50% 100%; }
+.llocal-mascot[data-state='thinking'] .m-hand-l { animation: m-tap 0.34s ease-in-out infinite; }
+.llocal-mascot[data-state='thinking'] .m-hand-r { animation: m-tap 0.34s ease-in-out infinite 0.17s; }
+@keyframes m-tap {
+  0%, 100% { transform: translateY(0) }
+  50% { transform: translateY(-1.8px) }
+}
+.llocal-mascot[data-state='thinking'] .m-dot { animation: m-dot 1.2s ease-in-out infinite; }
+.m-dot-2 { animation-delay: 0.2s !important; }
+.m-dot-3 { animation-delay: 0.4s !important; }
+@keyframes m-dot {
+  0%, 100% { opacity: 0.25; transform: translateY(0) }
+  40% { opacity: 1; transform: translateY(-1.5px) }
+}
+
+/* ---- idle play: a little bouncing ball -------------------------------- */
+.llocal-mascot[data-activity='play'] .m-ball { animation: m-bounce 0.9s cubic-bezier(0.3, 0, 0.4, 1) infinite; }
+@keyframes m-bounce {
+  0%, 100% { transform: translateY(0) }
+  50% { transform: translateY(-11px) }
+}
+
+/* ---- celebrate: sparkles --------------------------------------------- */
+.llocal-mascot[data-state='celebrate'] .m-spark { animation: m-spark 0.8s ease-out infinite; }
+.m-spark-2 { animation-delay: 0.25s !important; }
+@keyframes m-spark {
+  0% { opacity: 0; transform: scale(0.2) }
+  40% { opacity: 1; transform: scale(1) }
+  100% { opacity: 0; transform: scale(0.4) }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .llocal-mascot *, .llocal-mascot { animation: none !important; }
+}
