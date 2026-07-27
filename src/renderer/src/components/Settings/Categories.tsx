@@ -12,6 +12,7 @@ import { t } from '@renderer/utils/utils'
 import { ChooseLanguage } from './ChooseLanguage'
 import { ServerSettings } from './ServerSettings'
 import { RepoConsole } from './RepoConsole'
+import { ScheduledTasks } from './ScheduledTasks'
 
 export const Categories = (): React.ReactElement => {
   // to maintain state of what is selected, this helps with choosing what to render
@@ -38,6 +39,7 @@ export const Categories = (): React.ReactElement => {
   map.set('knowledgeBase', <KnowLedgeBase />)
   map.set('server', <ServerSettings />)
   map.set('repo', <RepoConsole />)
+  map.set('scheduled', <ScheduledTasks />)
   // map.set('experimental', <Preferences />)
   return (
     <>
@@ -46,6 +48,7 @@ export const Categories = (): React.ReactElement => {
         <NavbarItem className={`${selected == 'knowledgeBase' && 'opacity-100'}`} onClick={() => setSelected('knowledgeBase')}>{t("Knowledge Base")}</NavbarItem>
         <NavbarItem className={`${selected == 'server' && 'opacity-100'}`} onClick={() => setSelected('server')}>{t("Server & Repository")}</NavbarItem>
         <NavbarItem className={`${selected == 'repo' && 'opacity-100'}`} onClick={() => setSelected('repo')}>{t("Repo & Console")}</NavbarItem>
+        <NavbarItem className={`${selected == 'scheduled' && 'opacity-100'}`} onClick={() => setSelected('scheduled')}>{t("Scheduled Tasks")}</NavbarItem>
         {/* <NavbarItem className={`${selected == 'experimental' && 'opacity-100'}`} onClick={() => setSelected('experimental')}>Experimental</NavbarItem> */}
       </Navbar>
       {map.get(selected)}

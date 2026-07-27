@@ -1,9 +1,15 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 // import { electronAPI } from '@electron-toolkit/preload'
+import type { AgentMode, Task } from '../shared/schedule'
 
 interface webSearchType {
   prompt: string
   sources: string
+}
+
+interface ScheduleNotice {
+  level: 'info' | 'success' | 'error' | 'warning'
+  message: string
 }
 
 // Custom APIs for renderer
@@ -49,6 +55,26 @@ const api = {
     const listener = (_e: unknown, payload: { sessionId: string; code: number | null }): void => callback(payload)
     ipcRenderer.on('terminal:exit', listener)
     return () => ipcRenderer.removeListener('terminal:exit', listener)
+  },
+
+  // ---- Scheduled / unattended tasks ----
+  listSchedules: (): Promise<Task[]> => ipcRenderer.invoke('schedule:list'),
+  saveSchedule: (task: Task): Promise<Task[]> => ipcRenderer.invoke('schedule:save', task),
+  deleteSchedule: (id: string): Promise<Task[]> => ipcRenderer.invoke('schedule:delete', id),
+  runScheduleNow: (id: string): Promise<boolean> => ipcRenderer.invoke('schedule:run-now', id),
+  setScheduleAgentMode: (mode: AgentMode): Promise<void> =>
+    ipcRenderer.invoke('schedule:set-mode', mode),
+  // Main -> renderer: a due task should run. Returns an unsubscribe fn.
+  onScheduleFire: (cb: (task: Task) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, task: Task): void => cb(task)
+    ipcRenderer.on('schedule:fire', listener)
+    return () => ipcRenderer.removeListener('schedule:fire', listener)
+  },
+  // Main -> renderer: surface a toast (e.g. an unattended task refused).
+  onScheduleNotice: (cb: (notice: ScheduleNotice) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, notice: ScheduleNotice): void => cb(notice)
+    ipcRenderer.on('schedule:notify', listener)
+    return () => ipcRenderer.removeListener('schedule:notify', listener)
   }
 }
 
