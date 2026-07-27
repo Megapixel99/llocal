@@ -80,6 +80,24 @@ const RepoPicker = ({
   const [branch, setBranch] = useState(cfg.branch || 'main')
   const [busy, setBusy] = useState(false)
   const recents = getRecentRepos()
+  const [repoList, setRepoList] = useState<
+    { owner: string; repo: string; fullName: string; branch: string; private: boolean }[]
+  >([])
+  const [loadingRepos, setLoadingRepos] = useState(false)
+
+  // Browse the repos the configured GitHub token can access (via the companion server).
+  const loadRepos = async (): Promise<void> => {
+    setLoadingRepos(true)
+    try {
+      const { repos } = await git.repos()
+      setRepoList(repos)
+      if (repos.length === 0) toast.info(t('No repositories found for this token'))
+    } catch (error) {
+      toast.error(`${t('Could not load repositories')}: ${String(error).split(':').pop()?.trim()}`)
+    } finally {
+      setLoadingRepos(false)
+    }
+  }
 
   const current = cfg.owner && cfg.repo ? `${cfg.owner}/${cfg.repo}` : folder
 
@@ -123,6 +141,34 @@ const RepoPicker = ({
           <Modal.Description className="text-xs opacity-70">
             {t('Cloned on the companion server. Set the server URL + token under Settings → Server & Repository.')}
           </Modal.Description>
+
+          {/* Browse the repos the GitHub token can access */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs opacity-70">{t('Your GitHub repositories')}</span>
+            <Button variant="link" className="text-xs" onClick={loadRepos} disabled={loadingRepos}>
+              {loadingRepos ? t('Loading…') : t('Load my repos')}
+            </Button>
+          </div>
+          {repoList.length > 0 && (
+            <div className="flex max-h-40 flex-col gap-1 overflow-auto">
+              {repoList.map((r) => (
+                <button
+                  key={r.fullName}
+                  type="button"
+                  onClick={() => {
+                    setOwner(r.owner)
+                    setRepo(r.repo)
+                    setBranch(r.branch || 'main')
+                  }}
+                  className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-foreground hover:bg-opacity-10"
+                >
+                  <span className="truncate">{r.fullName}</span>
+                  {r.private && <span className="shrink-0 text-[10px] opacity-60">{t('private')}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+
           {recents.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {recents.map((slug) => (

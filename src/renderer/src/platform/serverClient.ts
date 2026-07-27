@@ -94,6 +94,13 @@ export const git = {
       body: JSON.stringify({ owner: g.owner, repo: g.repo, branch: g.branch, token: g.token })
     })
   },
+  // List repositories the configured GitHub token can access (mobile repo picker).
+  repos: () => {
+    const g = getGitConfig()
+    return req<{
+      repos: Array<{ owner: string; repo: string; fullName: string; branch: string; private: boolean }>
+    }>('/git/repos', { method: 'POST', body: JSON.stringify({ token: g.token }) })
+  },
   tree: () => {
     const g = getGitConfig()
     return req<{ files: string[] }>(
