@@ -82,6 +82,10 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
   const notificationPrefs = useAtomValue(notificationPrefsAtom) // native OS notification settings
   const selectedChatIndex = useAtomValue(selectedChatIndexAtom)
   const firstChatRender = useRef(true)
+  // The chat the in-flight request belongs to. Persisting a brand-new chat on send flips
+  // selectedChatIndex, which would otherwise trip the abort-on-switch effect below and cancel the
+  // very request that created it — so that effect skips this date.
+  const activeRequestChatDateRef = useRef('')
   // To Debug
   // useEffect(()=>{console.log(stream);
   // },[stream])
@@ -100,6 +104,8 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
       firstChatRender.current = false
       return
     }
+    // Don't abort the request that just created (and switched us into) this very chat.
+    if (selectedChatIndex && selectedChatIndex === activeRequestChatDateRef.current) return
     getOllama().abort()
     stopGeneratingRef.current = true
     setStream('')
@@ -144,6 +150,16 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
       }
 
       setChat((preValue) => [...preValue, user])
+
+      // Persist immediately so the chat shows up in "Your chats" the moment you hit send — waiting
+      // for the assistant reply meant a still-thinking (or errored) turn never appeared in the list.
+      // Records the chat's date so the abort-on-switch effect doesn't cancel this run when the new
+      // chat becomes selected. The reply is saved into this same doc when it lands.
+      try {
+        activeRequestChatDateRef.current = await addChat([...chat, initialUser])
+      } catch (error) {
+        console.error('Failed to persist chat on send', error)
+      }
 
       // The Agent tab needs a working folder to operate in; warn and fall back to plain chat otherwise.
       if (activeTab === 'agent' && !workingFolder) {
