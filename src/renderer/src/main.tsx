@@ -2,6 +2,7 @@ import './assets/index.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import { ErrorBoundary } from './ui/ErrorBoundary'
 import { isElectron } from './platform/detect'
 import { createHttpApi } from './platform/httpApi'
 import { initWebI18n } from './platform/i18n-web'
@@ -17,6 +18,8 @@ if (!isElectron()) {
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 )

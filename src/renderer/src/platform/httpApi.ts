@@ -74,6 +74,13 @@ export interface LlocalApi {
   onScheduleNotice: (cb: (notice: unknown) => void) => () => void
   notify: (event: string, payload: unknown, prefs: unknown) => Promise<boolean>
   notifySetPrefs: (prefs: unknown) => Promise<void>
+  // The interactive terminal spawns a local child process — desktop-only. Stubbed on mobile so the
+  // Code-tab terminal opens without crashing (subscriptions are no-ops; start reports unavailable).
+  startTerminal: (opts: { command: string; cwd?: string }) => Promise<string>
+  sendTerminalInput: (sessionId: string, data: string) => Promise<boolean>
+  killTerminal: (sessionId: string) => Promise<boolean>
+  onTerminalData: (cb: (payload: { sessionId: string; chunk: string }) => void) => () => void
+  onTerminalExit: (cb: (payload: { sessionId: string; code: number | null }) => void) => () => void
 }
 
 const DESKTOP_ONLY = 'This feature is desktop-only. On mobile, use Settings → Repo & Console.'
@@ -218,6 +225,14 @@ export function createHttpApi(): LlocalApi {
     onScheduleFire: () => () => {},
     onScheduleNotice: () => () => {},
     notify: async () => false,
-    notifySetPrefs: async () => {}
+    notifySetPrefs: async () => {},
+
+    // Interactive terminal is desktop-only (local child process). No-op subscriptions + a clear
+    // error on start so the panel degrades instead of crashing the app on mobile.
+    startTerminal: () => Promise.reject(new Error(DESKTOP_ONLY)),
+    sendTerminalInput: async () => false,
+    killTerminal: async () => false,
+    onTerminalData: () => () => {},
+    onTerminalExit: () => () => {}
   }
 }
