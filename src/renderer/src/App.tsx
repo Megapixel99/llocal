@@ -50,6 +50,11 @@ function App(): JSX.Element {
         }}
       >
         {platform == "win32" && <TitleBar />}
+        {/* macOS/Linux have no custom TitleBar; add a slim draggable strip so the frameless window
+            can still be moved. Sits in the top padding above the sidebar tabs / chat content. */}
+        {platform !== "win32" && (
+          <div className="draggable absolute top-0 inset-x-0 h-5 z-50" aria-hidden="true" />
+        )}
         <Toaster className='font-poppins text-base' richColors theme={theme} />
         <Settings className="justify-between items-center gap-14 overflow-y-scroll">
           <Categories />

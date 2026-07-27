@@ -1,6 +1,7 @@
 import React, {
   ChangeEvent, ComponentProps,
   useEffect,
+  useRef,
   useState,
   // useCallback
 } from 'react'
@@ -9,6 +10,7 @@ import { PiChartBarBold, PiPaperPlaneRightFill, PiStopCircleBold } from 'react-i
 import { LuNetwork, LuTerminal } from 'react-icons/lu'
 import { SubmitHandler, useForm } from 'react-hook-form'
 import { usePrompt } from '@renderer/hooks/usePrompt'
+import { getOllama } from '@renderer/utils/ollama'
 import { TextArea } from '@renderer/ui/TextArea'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -51,6 +53,10 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
     resolver: zodResolver(FormFieldsSchema)
   })
   const [isLoading, promptReq] = usePrompt()
+  const promptReqRef = useRef(promptReq)
+  promptReqRef.current = promptReq // always call the latest promptReq (fresh chat closure) when draining
+  const [queue, setQueue] = useState<string[]>([])
+  const drainingRef = useRef(false)
   const [autoCompleteList, setAutoCompleteList] = useAtom(knowledgeBaseAtom);
   const setStopGenerating = useSetAtom(stopGeneratingAtom)
   const setSuggestions = useSetAtom(suggestionsAtom)
@@ -64,6 +70,20 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const fileDrop = useAtomValue(fileDropAtom)
   const agentMode = useAtomValue(agentModeAtom)
   const notificationPrefs = useAtomValue(notificationPrefsAtom)
+
+  // Send queued messages one at a time as each generation finishes. drainingRef guards against the
+  // brief window before isLoading flips back to true after we kick off the next prompt.
+  useEffect(() => {
+    if (isLoading) {
+      drainingRef.current = false
+      return
+    }
+    if (queue.length === 0 || drainingRef.current) return
+    drainingRef.current = true
+    const [next, ...rest] = queue
+    setQueue(rest)
+    promptReqRef.current(next)
+  }, [isLoading, queue])
 
   // Load the available slash commands once (from ~/.claude/commands, the LLocal
   // commands folder, and the bundled examples) so the palette can suggest them.
@@ -128,7 +148,8 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   }, [agentMode, commandList, notificationPrefs])
 
   function handleClick(): void {
-    setStopGenerating(pre => !pre)
+    setStopGenerating(true) // ask the in-flight generation to stop
+    getOllama().abort() // and abort the request immediately so Stop is responsive
   }
 
   // Insert the chosen command's invocation; the user then types any arguments
@@ -141,18 +162,25 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>): void {
     if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault() // don't insert the default newline when submitting
       handleSubmit(onSubmit)()
     }
   }
 
   const onSubmit: SubmitHandler<FormFieldsType> = async (data) => {
+    const value = data.prompt || ''
     reset()
     setAutoCompleteList([])
     setCommandMatches([])
     setSuggestions(pre => ({ ...pre, prompts: [] }))
     // Expand a leading `/command …` into its template before sending; plain
     // prompts (and unknown slashes) pass through untouched.
-    const finalPrompt = maybeExpandCommand(data.prompt || '', commandList)
+    const finalPrompt = maybeExpandCommand(value, commandList)
+    // If a generation is already running, queue this one; the drain effect sends it when free.
+    if (isLoading) {
+      setQueue((q) => [...q, finalPrompt])
+      return
+    }
     await promptReq(finalPrompt)
   }
 
@@ -229,6 +257,16 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
           )}
         </div>
         <div className='flex items-center gap-2'>
+          {queue.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setQueue([])}
+              title={t('Clear queued messages')}
+              className='text-xs opacity-60 hover:opacity-100 transition-opacity'
+            >
+              {queue.length} {t('queued')} ✕
+            </button>
+          )}
           <ContextInfo />
           <Modal.Root>
             <ToolTip tooltip={t('Session analytics')}>
@@ -257,12 +295,11 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
         <TextArea
           name="prompt"
           register={register}
-          disabled={isLoading}
           onKeyDown={handleKeyDown}
           onChange={handleChange}
           variant={"chat"}
           className={`h-full w-full pl-10 pr-8 ${fileDrop && "outline-dotted outline-2 opacity-50 hover:opacity-100"}`}
-          placeholder={t("Enter your prompt")}
+          placeholder={isLoading ? t("Queue a message…") : t("Enter your prompt")}
         />
         <MoreButton className="text-2xl absolute left-2 top-1/2 transform -translate-y-1/2" />
 

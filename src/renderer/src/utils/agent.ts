@@ -91,10 +91,12 @@ export function resolveAgentApproval(
 }
 
 function toolCallBlock(name: string, args: Record<string, unknown>): string {
-  if (name === 'run_command') return `\n\n**\`$ ${String(args.command ?? '')}\`**\n`
-  if (name === 'write_file') return `\n\n**✎ write** \`${String(args.path ?? '')}\`\n`
+  // A horizontal rule before each step so the transcript reads as distinct blocks, not one dump.
+  const sep = '\n\n---\n\n'
+  if (name === 'run_command') return `${sep}**\`$ ${String(args.command ?? '')}\`**\n`
+  if (name === 'write_file') return `${sep}**✎ write** \`${String(args.path ?? '')}\`\n`
   const detail = args.path ?? args.query ?? args.problem ?? args.task ?? ''
-  return `\n\n**🔧 ${name}** \`${String(detail)}\`\n`
+  return `${sep}**🔧 ${name}** \`${String(detail)}\`\n`
 }
 
 function resultBlock(result: string): string {
@@ -177,6 +179,10 @@ export async function runAgentLoop(opts: {
   const delegateNote = canDelegate
     ? `\nFor a large, self-contained piece of work, call \`${SUBAGENT_TOOL_NAME}\` to delegate it to a focused sub-agent (explorer/coder/reviewer) and get back just its result — handy for isolating research or running independent tasks.`
     : ''
+  const editRule =
+    mode === 'plan'
+      ? ''
+      : `\nCRITICAL: To change a file you MUST call the write_file tool with the full new file contents. Describing an edit in text does NOT change anything — if you did not call write_file, the file is unchanged. Never say you edited or created a file unless you actually called write_file for it in this conversation.`
 
   const system = {
     role: 'system',
@@ -184,11 +190,12 @@ export async function runAgentLoop(opts: {
 Use the provided tools to inspect${mode === 'plan' ? '' : ', modify,'} the project${mode === 'plan' ? '' : ' and run commands'}. Paths are relative to that folder.
 Work step by step: read/list/search to understand before ${mode === 'plan' ? 'planning' : 'changing anything'}.
 For a hard sub-problem, call \`${REASON_TOOL_NAME}\` to think it through step by step before acting. For anything outside this codebase — library or API docs, package versions, an unfamiliar error, current facts — call \`${DEEP_RESEARCH_TOOL_NAME}\` to look it up on the web (it returns a cited summary).${delegateNote}
-When the task is complete, stop calling tools and give a short summary.${planNote}${roleNote}`
+When the task is complete, stop calling tools and give a short summary.${editRule}${planNote}${roleNote}`
   }
 
   const working: AnyMessage[] = [system, ...opts.messages]
   let transcript = ''
+  const written: string[] = [] // files actually written via write_file this run
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     if (shouldStop()) {
@@ -196,14 +203,21 @@ When the task is complete, stop calling tools and give a short summary.${planNot
       break
     }
 
-    const res = await getOllama().chat({
-      model,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      messages: working as any,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      tools: tools as any,
-      stream: false
-    })
+    let res
+    try {
+      res = await getOllama().chat({
+        model,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        messages: working as any,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tools: tools as any,
+        stream: false
+      })
+    } catch (err) {
+      // Stop aborts the request, which throws here — end the loop and keep the transcript so far.
+      if (shouldStop() || (err instanceof Error && err.name === 'AbortError')) break
+      throw err
+    }
     const msg = res.message as AnyMessage
 
     const cleaned = parseHarmony(msg.content ?? '').content
@@ -312,10 +326,20 @@ When the task is complete, stop calling tools and give a short summary.${planNot
       }
 
       onToolCall?.({ tool: name, durationMs: Date.now() - toolStart })
+      // Record actual file writes so we can honestly report what changed (write_file returns "Wrote <path>").
+      if (name === 'write_file' && result.startsWith('Wrote ')) {
+        written.push(String(args.path ?? ''))
+      }
       transcript += resultBlock(result)
       onProgress(transcript)
       working.push({ role: 'tool', content: result })
     }
+  }
+
+  // Honest footer: makes it unambiguous whether real edits happened (small models sometimes claim
+  // edits they never actually wrote). Only meaningful when writing is allowed.
+  if (mode !== 'plan' && transcript.trim().length > 0) {
+    transcript += `\n\n---\n\n**Changed files:** ${written.length ? written.join(', ') : 'none'}`
   }
 
   // Long-running run finished — nudge the user (main only shows it when the
@@ -329,5 +353,5 @@ When the task is complete, stop calling tools and give a short summary.${planNot
     notify('agent-complete', { summary }, notificationPrefs)
   }
 
-  return transcript || '_(no output)_'
+  return transcript
 }

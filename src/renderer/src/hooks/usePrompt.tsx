@@ -6,6 +6,7 @@ import {
   contextUsageAtom,
   effortAtom,
   experimentalSearchAtom,
+  selectedChatIndexAtom,
   fileContextAtom,
   generatingAtom,
   imageAttatchmentAtom,
@@ -79,6 +80,8 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
   const setApproval = useSetAtom(agentApprovalAtom)
   const effort = useAtomValue(effortAtom) // DeepResearch breadth: low | medium | high
   const notificationPrefs = useAtomValue(notificationPrefsAtom) // native OS notification settings
+  const selectedChatIndex = useAtomValue(selectedChatIndexAtom)
+  const firstChatRender = useRef(true)
   // To Debug
   // useEffect(()=>{console.log(stream);
   // },[stream])
@@ -87,6 +90,22 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
   useEffect(() => {
     stopGeneratingRef.current = stopGenerating
   }, [stopGenerating])
+
+  // Switching to (or creating) a different chat cancels any in-flight generation for the previous
+  // chat. Without this a request started before the first token arrives keeps running and its
+  // response lands in whichever chat is now active — and a hung request leaves the UI stuck
+  // "generating" forever. Aborting throws inside the run loop, which routes to its catch/cleanup.
+  useEffect(() => {
+    if (firstChatRender.current) {
+      firstChatRender.current = false
+      return
+    }
+    getOllama().abort()
+    stopGeneratingRef.current = true
+    setStream('')
+    setLoading(false)
+    setGenerating(false)
+  }, [selectedChatIndex])
 
   // Look up the selected model's context window size so we can show how full the context is.
   useEffect(() => {
@@ -110,6 +129,8 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
     setLoading(true)
     setGenerating(true)
     setMascotPhase(null) // reset; streaming below sets reading/responding as it goes
+    setStopGenerating(false) // clear any leftover stop flag so this run isn't aborted immediately
+    stopGeneratingRef.current = false
     // Capture a single client for this request so chat + abort target the same instance.
     const ollama = getOllama()
     try {
@@ -133,6 +154,18 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
       // plain chat (bypasses web-search / RAG rewriting).
       if (activeTab === 'agent' && workingFolder) {
         try {
+          // The agent needs a tool-capable model; check up front for a clear message instead of a raw
+          // "does not support tools" error mid-request.
+          const info = await getOllama().show({ model: modelName })
+          const capabilities = (info as { capabilities?: string[] }).capabilities ?? []
+          if (!capabilities.includes('tools')) {
+            toast.error(
+              t(
+                'This model cannot use tools, which the agent needs. Pick a tool-capable model (e.g. qwen3-coder) in Settings.'
+              )
+            )
+            return
+          }
           // Push current notification prefs so main-side triggers (sensitive-file
           // access during tool calls) respect the user's settings.
           window.api?.notifySetPrefs?.(notificationPrefs)
@@ -182,11 +215,14 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
             notificationPrefs,
             effort
           })
-          const ai = { role: 'assistant', content: transcript }
-          addChat([...chat, initialUser, ai])
-          setChat((preValue) => [...preValue, ai])
+          if (transcript.trim().length > 0) {
+            const ai = { role: 'assistant', content: transcript }
+            addChat([...chat, initialUser, ai])
+            setChat((preValue) => [...preValue, ai])
+          }
         } catch (error) {
-          toast.error(`${error}`)
+          // ignore user-initiated aborts (Stop); surface real errors
+          if (!(error instanceof Error && error.name === 'AbortError')) toast.error(`${error}`)
         } finally {
           setStream('')
           setApproval(null)
@@ -319,21 +355,17 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
       let chunk = ''
       let thinking = ''
 
-      for await (const part of response) {
-        chunk += part.message.content ?? ''
-        // native reasoning, when the model provides it separately from the answer
-        if (part.message.thinking) thinking += part.message.thinking
+      try {
+        for await (const part of response) {
+          chunk += part.message.content ?? ''
+          // native reasoning, when the model provides it separately from the answer
+          if (part.message.thinking) thinking += part.message.thinking
 
-        // mascot: reading while only reasoning has streamed, responding once the answer starts
-        setMascotPhase(streamPhase(chunk, thinking.length))
+          // mascot: reading while only reasoning has streamed, responding once the answer starts
+          setMascotPhase(streamPhase(chunk, thinking.length))
 
-        // incase stop generating is invoked as true, then we abort the process
-        if (part.done == true || stopGeneratingRef.current) {
-          // recover reasoning/answer from any harmony tokens that leaked into the content stream
-          const parsed = parseHarmony(chunk)
-          const display = composeAssistantMessage(thinking || parsed.thinking, parsed.content)
           // surface how full the context window is (prompt tokens + generated tokens)
-          if (part.prompt_eval_count || part.eval_count) {
+          if (part.done == true && (part.prompt_eval_count || part.eval_count)) {
             setContextUsage((pre) => ({
               ...pre,
               used: (part.prompt_eval_count ?? 0) + (part.eval_count ?? 0)
@@ -350,23 +382,34 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
               }
             ])
           }
-          // defining the ai assistant object which contains the response
-          let ai = { role: 'assistant', content: display }
-          // incase, sources exist we show the relevant citations aswell
-          if (sources) {
-            ai = { role: 'assistant', content: display + '\n' + sources }
-          }
-          addChat([...chat, initialUser, ai])
-          setChat((preValue) => [...preValue, ai])
-          setStream('')
-          setStopGenerating(false)
-          ollama.abort()
-          break
+
+          // stop when the model is done, or the user pressed Stop
+          if (part.done == true || stopGeneratingRef.current) break
+
+          // live preview: reasoning shows in the thinking accordion, answer text streams below it
+          const parsed = parseHarmony(chunk)
+          setStream(composeAssistantMessage(thinking || parsed.thinking, parsed.content))
         }
-        // live preview: reasoning shows in the thinking accordion, answer text streams below it
-        const parsed = parseHarmony(chunk)
-        setStream(composeAssistantMessage(thinking || parsed.thinking, parsed.content))
+      } catch (streamError) {
+        // Pressing Stop aborts the request, which throws here — swallow it and keep whatever was
+        // generated so far. Genuine errors are re-thrown to the outer handler.
+        const aborted =
+          stopGeneratingRef.current ||
+          (streamError instanceof Error && streamError.name === 'AbortError')
+        if (!aborted) throw streamError
       }
+
+      // Persist the reply only if it actually produced content (avoids empty bubbles on an early stop).
+      const parsed = parseHarmony(chunk)
+      const display = composeAssistantMessage(thinking || parsed.thinking, parsed.content)
+      if (display.trim().length > 0) {
+        const content = sources ? display + '\n' + sources : display
+        addChat([...chat, initialUser, { role: 'assistant', content }])
+        setChat((preValue) => [...preValue, { role: 'assistant', content }])
+      }
+      setStream('')
+      setStopGenerating(false)
+      ollama.abort()
       // TODO: use Structured outputs here aswell
       // incase suggestions are toggled on
       if (suggestions.show) {

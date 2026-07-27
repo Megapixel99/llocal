@@ -1,8 +1,9 @@
 import { workingFolderAtom } from '@renderer/store/mocks'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { ComponentProps, useEffect, useState } from 'react'
 import { cn, t } from '@renderer/utils/utils'
 import { Button } from '@renderer/ui/Button'
+import { Menu } from '@renderer/ui/Menu'
 import { Modal } from '@renderer/ui/Modal'
 import { toast } from 'sonner'
 import { LuGitBranch } from 'react-icons/lu'
@@ -10,6 +11,7 @@ import { LuGitBranch } from 'react-icons/lu'
 // Types derived from the preload API so we don't depend on global interface visibility.
 type GitInfo = Awaited<ReturnType<typeof window.api.getGitInfo>>
 type GitCaps = Awaited<ReturnType<typeof window.api.getGitCapabilities>>
+type Worktrees = Awaited<ReturnType<typeof window.api.listWorktrees>>
 
 const fieldClass =
   'p-2 rounded-lg bg-foreground bg-opacity-10 dark:bg-background dark:bg-opacity-20 outline-none text-sm w-full'
@@ -21,9 +23,10 @@ const fieldClass =
  * */
 export const GitPanel = ({ className, ...props }: ComponentProps<'div'>): React.ReactElement | null => {
   const folder = useAtomValue(workingFolderAtom)
+  const setWorkingFolder = useSetAtom(workingFolderAtom)
   const [info, setInfo] = useState<GitInfo | null>(null)
   const [caps, setCaps] = useState<GitCaps | null>(null)
-  const [worktreeCount, setWorktreeCount] = useState(0)
+  const [worktrees, setWorktrees] = useState<Worktrees>([])
   const [wtName, setWtName] = useState('')
   const [prTitle, setPrTitle] = useState('')
   const [prBody, setPrBody] = useState('')
@@ -41,7 +44,7 @@ export const GitPanel = ({ className, ...props }: ComponentProps<'div'>): React.
       ])
       setInfo(gitInfo)
       setCaps(capabilities)
-      if (gitInfo.isRepo) setWorktreeCount((await window.api.listWorktrees(folder)).length)
+      if (gitInfo.isRepo) setWorktrees(await window.api.listWorktrees(folder))
     } catch (error) {
       console.error(error)
     }
@@ -60,9 +63,10 @@ export const GitPanel = ({ className, ...props }: ComponentProps<'div'>): React.
     const id = toast.loading(t('Creating worktree'))
     try {
       const created = await window.api.createWorktree(folder, wtName)
-      toast.success(`${t('Worktree created at')} ${created}`, { id })
+      // Make the new worktree the working directory so the agent/git panel operate inside it.
+      setWorkingFolder(created)
+      toast.success(`${t('Switched to new worktree')} ${created}`, { id })
       setWtName('')
-      refresh()
     } catch (error) {
       toast.error(String(error), { id })
     } finally {
@@ -105,10 +109,36 @@ export const GitPanel = ({ className, ...props }: ComponentProps<'div'>): React.
         </span>
       )}
       {repoName && <span className="opacity-60">· {repoName}</span>}
-      {worktreeCount > 1 && (
-        <span className="opacity-60">
-          · {worktreeCount} {t('worktrees')}
-        </span>
+
+      {/* Worktree switcher: click to make any worktree the working directory */}
+      {worktrees.length > 0 && (
+        <Menu.Root modal={false}>
+          <Menu.Trigger className="opacity-60 hover:opacity-100 transition-opacity">
+            · {worktrees.length} {worktrees.length === 1 ? t('worktree') : t('worktrees')}
+          </Menu.Trigger>
+          <Menu.Content className="flex max-h-64 flex-col gap-1 overflow-auto">
+            {worktrees.map((wt) => {
+              const name = wt.path.split('/').filter(Boolean).pop()
+              const active = wt.path === info.root
+              return (
+                <Menu.Item
+                  key={wt.path}
+                  onClick={() => setWorkingFolder(wt.path)}
+                  title={wt.path}
+                  className={cn(
+                    'flex w-full cursor-pointer items-center gap-2',
+                    active && 'font-semibold'
+                  )}
+                >
+                  <LuGitBranch className="shrink-0 opacity-60" />
+                  <span className="max-w-[14rem] truncate">{name}</span>
+                  {wt.branch && <span className="opacity-50">({wt.branch})</span>}
+                  {active && <span className="ml-auto opacity-70">✓</span>}
+                </Menu.Item>
+              )
+            })}
+          </Menu.Content>
+        </Menu.Root>
       )}
 
       {/* Create worktree */}
