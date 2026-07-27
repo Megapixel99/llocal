@@ -18,7 +18,9 @@ import { ContextInfo } from './ContextInfo'
 import { AnalyticsPanel } from './Analytics/AnalyticsPanel'
 import { Modal } from '@renderer/ui/Modal'
 import { GitPanel } from './GitPanel'
+import { TerminalPanel } from './TerminalPanel'
 import { WorkspaceFolder } from './WorkspaceFolder'
+import { LuTerminal } from 'react-icons/lu'
 import { AgentModeSelector } from './AgentModeSelector'
 import { EffortSelector } from './EffortSelector'
 import { AgentApproval } from './AgentApproval'
@@ -53,6 +55,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const [isAutoComplete, setIsAutoComplete] = useState(false)
   const [commandList, setCommandList] = useAtom(commandListAtom)
   const [commandMatches, setCommandMatches] = useState<Command[]>([])
+  const [showTerminal, setShowTerminal] = useState(false)
   const fileDrop = useAtomValue(fileDropAtom)
 
   // Load the available slash commands once (from ~/.claude/commands, the LLocal
@@ -138,6 +141,19 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
           {activeTab === 'chat' && <EffortSelector />}
           <WorkspaceFolder />
           <GitPanel />
+          {activeTab === 'agent' && (
+            <button
+              type="button"
+              onClick={() => setShowTerminal((v) => !v)}
+              title={t('Toggle terminal')}
+              className={twMerge(
+                'flex items-center gap-1 text-xs transition-opacity',
+                showTerminal ? 'opacity-100' : 'opacity-60 hover:opacity-100'
+              )}
+            >
+              <LuTerminal /> {t('Terminal')}
+            </button>
+          )}
         </div>
         <div className='flex items-center gap-2'>
           <ContextInfo />
@@ -154,6 +170,9 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
           </Modal.Root>
         </div>
       </div>
+      {activeTab === 'agent' && showTerminal && (
+        <TerminalPanel className="mb-2" onClose={() => setShowTerminal(false)} />
+      )}
       <ToolTip className='self-end w-fit h-full m-1 mr-5' tooltip={context.length > 1 ? `${context.length} ${t("files")}` : `${context.length} ${t("file")}`}>
         <ContextCard className='' />
       </ToolTip>

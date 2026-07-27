@@ -34,7 +34,22 @@ const api = {
   changeLanguage: (language: string): Promise<boolean> => ipcRenderer.invoke('changeLanguage', language),
   getLanguages: (): Promise<readonly string[]> => ipcRenderer.invoke('getLanguages'),
   titleBar: (event: string): void => ipcRenderer.send('titleBar', event),
-  textToSpeech: (text: string): Promise<ArrayBuffer> => ipcRenderer.invoke('textToSpeech', text)
+  textToSpeech: (text: string): Promise<ArrayBuffer> => ipcRenderer.invoke('textToSpeech', text),
+  // ---- Interactive terminal ----
+  startTerminal: (opts: { command: string; cwd?: string }): Promise<string> => ipcRenderer.invoke('terminal:start', opts),
+  sendTerminalInput: (sessionId: string, data: string): Promise<boolean> => ipcRenderer.invoke('terminal:input', { sessionId, data }),
+  killTerminal: (sessionId: string): Promise<boolean> => ipcRenderer.invoke('terminal:kill', { sessionId }),
+  // Event subscriptions — each returns an unsubscribe function.
+  onTerminalData: (callback: (payload: { sessionId: string; chunk: string }) => void): (() => void) => {
+    const listener = (_e: unknown, payload: { sessionId: string; chunk: string }): void => callback(payload)
+    ipcRenderer.on('terminal:data', listener)
+    return () => ipcRenderer.removeListener('terminal:data', listener)
+  },
+  onTerminalExit: (callback: (payload: { sessionId: string; code: number | null }) => void): (() => void) => {
+    const listener = (_e: unknown, payload: { sessionId: string; code: number | null }): void => callback(payload)
+    ipcRenderer.on('terminal:exit', listener)
+    return () => ipcRenderer.removeListener('terminal:exit', listener)
+  }
 }
 
 

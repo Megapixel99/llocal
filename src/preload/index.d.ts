@@ -57,7 +57,12 @@ declare global {
       changeLanguage: (language: string) => Promise<boolean>,
       getLanguages: () => Promise<readonly string[]>,
       titleBar: (event: string) => void,
-      textToSpeech: (text: string) => Promise<ArrayBuffer>
+      textToSpeech: (text: string) => Promise<ArrayBuffer>,
+      startTerminal: (opts: { command: string; cwd?: string }) => Promise<string>,
+      sendTerminalInput: (sessionId: string, data: string) => Promise<boolean>,
+      killTerminal: (sessionId: string) => Promise<boolean>,
+      onTerminalData: (callback: (payload: { sessionId: string; chunk: string }) => void) => () => void,
+      onTerminalExit: (callback: (payload: { sessionId: string; code: number | null }) => void) => () => void
     }
   }
 }
