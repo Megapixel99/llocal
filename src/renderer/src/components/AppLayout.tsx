@@ -34,7 +34,7 @@ export const Settings = ({
       {settingsToggle && (
         <div
           className={twMerge(
-            `dark:bg-black dark:bg-opacity-50 bg-foreground bg-opacity-50 absolute z-40 flex flex-col justify-center items-center w-full h-screen backdrop-blur p-5 overflow-y-scroll overflow-x-hidden`,
+            `dark:bg-black dark:bg-opacity-50 bg-foreground bg-opacity-50 absolute z-50 flex flex-col justify-center items-center w-full h-screen backdrop-blur p-5 overflow-y-scroll overflow-x-hidden`,
             className
           )}
           {...props}

@@ -15,7 +15,7 @@ import { OllamaEmbeddings } from '@langchain/community/embeddings/ollama'
 import { Document } from '@langchain/core/documents'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 import { FaissStore } from '@langchain/community/vectorstores/faiss'
-import { readdirSync, rmSync } from 'fs'
+import { existsSync, readdirSync, rmSync } from 'fs'
 import path from 'path'
 
 export interface AddKnowledgeType {
@@ -61,6 +61,8 @@ export const saveVectorDb = async (
 
 /** List the knowledge-base vector DBs stored under `baseDir`. */
 export const getVectorDbList = (baseDir: string): AddKnowledgeType[] => {
+  // The Knowledge Base folder doesn't exist until the first document is added.
+  if (!existsSync(baseDir)) return []
   return readdirSync(baseDir, { withFileTypes: true })
     .filter((dirEntry) => dirEntry.isDirectory())
     .map((dirEntry) => ({

@@ -3,6 +3,7 @@ import { useOllama } from '@renderer/hooks/useOllama'
 import { modelListAtom, prefModelAtom } from '@renderer/store/mocks'
 import { Dropdown } from '@renderer/ui/Dropdown'
 import { DropDownSelector } from '@renderer/ui/DropdownSelector'
+import { ModelCapabilities } from './ModelCapabilities'
 import { t } from '@renderer/utils/utils'
 import { useAtomValue } from 'jotai'
 import React, { ChangeEvent, ComponentProps, useEffect } from 'react'
@@ -52,6 +53,8 @@ export const ChooseModel = ({ className, ...props }: ComponentProps<'div'>): Rea
         </Dropdown>
         <IoChevronDown className="text-2xl absolute right-5 top-1/2 transform -translate-y-1/2" />
       </div>
+      {/* capabilities of the selected model, so you know what it can/can't do (e.g. tools for Code mode) */}
+      <ModelCapabilities model={prefModel} className="mt-1" />
     </div>
   )
 }
