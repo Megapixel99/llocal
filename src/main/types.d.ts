@@ -9,6 +9,28 @@
   fileName: string
 }
 
+ interface gitCapabilities {
+  git: boolean
+  gh: boolean
+  ghAuth: boolean
+}
+
+ interface gitInfo {
+  isRepo: boolean
+  branch?: string
+  dirty?: boolean
+  remote?: string
+  ahead?: number
+  behind?: number
+  root?: string
+}
+
+ interface worktree {
+  path: string
+  branch?: string
+  head?: string
+}
+
  interface GitHubLatestRelease {
   url: string
   assets_url: string

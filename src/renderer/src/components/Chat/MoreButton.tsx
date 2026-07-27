@@ -2,9 +2,9 @@ import { Menu } from '@renderer/ui/Menu'
 import { cn, t } from '@renderer/utils/utils'
 import { ChangeEvent, ComponentProps } from 'react'
 import { IoIosAddCircle } from 'react-icons/io'
-import { LuFile, LuImage } from 'react-icons/lu'
+import { LuFile, LuFolder, LuImage } from 'react-icons/lu'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { experimentalSearchAtom, fileContextAtom, imageAttatchmentAtom, modelListAtom } from '@renderer/store/mocks'
+import { workingFolderAtom, experimentalSearchAtom, fileContextAtom, imageAttatchmentAtom, modelListAtom } from '@renderer/store/mocks'
 import { toast } from 'sonner'
 import { Checkbox } from '@renderer/ui/Checkbox'
 
@@ -14,6 +14,7 @@ export const MoreButton = ({ className, ...props }: ComponentProps<'div'>): Reac
   const [experimentalSearch, setExperimentalSearch] = useAtom(experimentalSearchAtom)
   const modelList = useAtomValue(modelListAtom)
   const setFile = useSetAtom(fileContextAtom);
+  const setWorkingFolder = useSetAtom(workingFolderAtom);
   function handleClick(): void {
     // checking if the embedding model exists
     let check = false
@@ -79,6 +80,20 @@ export const MoreButton = ({ className, ...props }: ComponentProps<'div'>): Reac
     }
   }
 
+  // Indexes every supported document in a chosen folder and adds them all to the context.
+  const handleAddFolder = async (): Promise<void> => {
+    const toastId = toast.loading(t(`Adding to the knowledge base`))
+    try {
+      const { folder, added } = await window.api.addKnowledgeFolder()
+      setFile(pre => Array.isArray(pre) ? [...added, ...pre] : added)
+      setWorkingFolder(folder) // also make it the working folder (enables the git panel when it's a repo)
+      toast.success(`${added.length} ${t('documents added to the knowledge base')}`, { id: toastId })
+    } catch (error) {
+      const splits = String(error).split(":")
+      toast.error(`${splits[splits.length - 1]}`, { id: toastId })
+    }
+  }
+
   return (
     <div className={cn('flex flex-col justify-center items-center ', className)} {...props}>
       <Menu.Root modal={false}>
@@ -88,6 +103,9 @@ export const MoreButton = ({ className, ...props }: ComponentProps<'div'>): Reac
         <Menu.Content className="flex flex-col justify-center items-center gap-2">
           <Menu.Item onClick={handleAddFile} className='flex items-center w-full gap-2 cursor-pointer'>
             <LuFile className='text-2xl' /> Add file
+          </Menu.Item>
+          <Menu.Item onClick={handleAddFolder} className='flex items-center w-full gap-2 cursor-pointer'>
+            <LuFolder className='text-2xl' /> Add folder
           </Menu.Item>
           <Menu.Item onSelect={(e) => e.preventDefault()} onInput={handleImage} className='w-full'>
             <label htmlFor="images" className="flex items-center gap-2 cursor-pointer">

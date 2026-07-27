@@ -5,6 +5,9 @@ import { TextLoader } from "langchain/document_loaders/fs/text";
 import { CSVLoader } from "@langchain/community/document_loaders/fs/csv";
 import { Document } from '@langchain/core/documents'
 
+// The document types the RAG pipeline can load (see generateDocs below).
+export const SUPPORTED_EXTENSIONS = ['pdf', 'docx', 'pptx', 'txt', 'csv'] as const
+
 export async function pdfDocs(path:string):Promise<Document[]>{
   const loader = new PDFLoader(path);
   const docs = await loader.load();

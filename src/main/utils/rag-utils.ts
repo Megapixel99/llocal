@@ -47,6 +47,22 @@ export async function getSelectedFiles(): Promise<GetFile> {
   })
 }
 
+// Folder picker (openDirectory). Filters are ignored by the OS when picking a directory, so we filter
+// the folder's contents ourselves after the user chooses one (see the addKnowledgeFolder handler).
+export async function getSelectedFolder(): Promise<GetFile> {
+  return new Promise((resolve, reject) => {
+    dialog
+      .showOpenDialog({
+        message: t('Choose a folder to add to the knowledge base'),
+        properties: ['openDirectory']
+      })
+      .then((filePath): void => {
+        if (filePath.canceled) reject(t('The operation has been aborted!'))
+        resolve(filePath)
+      })
+  })
+}
+
 
 // Not yet needed
 // export function checkIfDuplicate(fileName: string):boolean{
