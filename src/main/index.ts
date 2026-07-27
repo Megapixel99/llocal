@@ -14,6 +14,7 @@ import { deleteVectorDb, getFileName, getSelectedFiles, getSelectedFolder, getVe
 import { generateDocs, SUPPORTED_EXTENSIONS } from './utils/docs-generator'
 import { createPullRequest, createWorktree, getGitCapabilities, getGitInfo, listWorktrees } from './utils/git-utils'
 import { AGENT_TOOLS, MUTATING_TOOLS, runAgentTool } from './utils/agent-tools'
+import { killTerminal, startTerminal, writeTerminal, StartTerminalOptions } from './utils/terminal'
 import { listCommands } from './utils/commands'
 import { Command } from '../shared/commands'
 import path from 'path'
@@ -328,6 +329,21 @@ app.whenReady().then(() => {
     'runAgentTool',
     async (_event, root: string, name: string, args: Record<string, unknown>) =>
       runAgentTool(root, name, args)
+  )
+
+  // ---- Interactive terminal (streaming sibling of run_command) ----
+  // Spawns a child, streams stdout/stderr back via 'terminal:data', forwards stdin,
+  // and emits 'terminal:exit' when it ends. Sessions are tracked in the terminal util.
+  ipcMain.handle('terminal:start', async (event, opts: StartTerminalOptions) =>
+    startTerminal(event.sender, opts)
+  )
+  ipcMain.handle(
+    'terminal:input',
+    async (_event, { sessionId, data }: { sessionId: string; data: string }) =>
+      writeTerminal(sessionId, data)
+  )
+  ipcMain.handle('terminal:kill', async (_event, { sessionId }: { sessionId: string }) =>
+    killTerminal(sessionId)
   )
 
   // ---- Slash commands (Claude Code style; e.g. github.com/wshobson/commands) ----
