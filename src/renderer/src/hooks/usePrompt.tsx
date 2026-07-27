@@ -175,7 +175,8 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
                   durationMs
                 }
               ]),
-            notificationPrefs
+            notificationPrefs,
+            effort
           })
           const ai = { role: 'assistant', content: transcript }
           addChat([...chat, initialUser, ai])
