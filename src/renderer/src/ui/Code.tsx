@@ -45,7 +45,9 @@ export const Code = ({
         <Artifacts code={String(children)} language={language ?? ''} />
       ) : (
         <SyntaxHighlighter
-          customStyle={{ background: 0 }}
+          // Scroll long lines inside the block instead of letting them stretch the message bubble
+          // past the chat column (which left a lopsided gap on the right + clipped content).
+          customStyle={{ background: 0, overflowX: 'auto', maxWidth: '100%' }}
           PreTag="div"
           language={language}
           style={atomOneDarkReasonable}
