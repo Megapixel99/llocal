@@ -9,6 +9,7 @@ import {
   fileContextAtom,
   generatingAtom,
   imageAttatchmentAtom,
+  mascotPhaseAtom,
   notificationPrefsAtom,
   prefModelAtom,
   sessionMetricsAtom,
@@ -17,6 +18,7 @@ import {
   suggestionsAtom,
   workingFolderAtom,
 } from '@renderer/store/mocks'
+import { streamPhase } from '../../../shared/mascot'
 import { getOllama } from '@renderer/utils/ollama'
 // import axios from 'axios'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
@@ -68,6 +70,7 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
   const [file, setFile] = useAtom(fileContextAtom)
   const [suggestions, setSuggestions] = useAtom(suggestionsAtom)
   const setGenerating = useSetAtom(generatingAtom) // drives the thinking animation while a response is in-flight
+  const setMascotPhase = useSetAtom(mascotPhaseAtom) // mascot: reading (thinking/researching) vs responding (writing)
   const setContextUsage = useSetAtom(contextUsageAtom) // tokens used vs the model's context window
   const setSessionMetrics = useSetAtom(sessionMetricsAtom) // per-message analytics (tokens, tokens/sec, tools)
   const activeTab = useAtomValue(activeTabAtom) // chat | agent
@@ -106,6 +109,7 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
   const promptReq = async (prompt: string): Promise<void> => {
     setLoading(true)
     setGenerating(true)
+    setMascotPhase(null) // reset; streaming below sets reading/responding as it goes
     // Capture a single client for this request so chat + abort target the same instance.
     const ollama = getOllama()
     try {
@@ -205,7 +209,8 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
               model: modelName,
               messages: [...chat, initialUser],
               onProgress: (t) => setStream(t),
-              shouldStop: () => stopGeneratingRef.current
+              shouldStop: () => stopGeneratingRef.current,
+              onPhase: setMascotPhase
             })
             const ai = { role: 'assistant', content: composed }
             addChat([...chat, initialUser, ai])
@@ -228,7 +233,8 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
               prompt,
               effort,
               onProgress: (t) => setStream(t),
-              shouldStop: () => stopGeneratingRef.current
+              shouldStop: () => stopGeneratingRef.current,
+              onPhase: setMascotPhase
             })
             const ai = {
               role: 'assistant',
@@ -317,6 +323,9 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
         chunk += part.message.content ?? ''
         // native reasoning, when the model provides it separately from the answer
         if (part.message.thinking) thinking += part.message.thinking
+
+        // mascot: reading while only reasoning has streamed, responding once the answer starts
+        setMascotPhase(streamPhase(chunk, thinking.length))
 
         // incase stop generating is invoked as true, then we abort the process
         if (part.done == true || stopGeneratingRef.current) {

@@ -10,6 +10,7 @@
  */
 import { getOllama } from '@renderer/utils/ollama'
 import { composeAssistantMessage, findUrls, parseHarmony } from '@renderer/utils/utils'
+import { streamPhase, type BusyPhase } from '../../../shared/mascot'
 import type { Effort, Message } from '@renderer/store/mocks'
 
 export type Intent = 'chat' | 'reason' | 'research'
@@ -35,7 +36,8 @@ async function streamComposed(
   messages: { role: string; content: string }[],
   onProgress: (composed: string) => void,
   shouldStop: () => boolean,
-  prefix = ''
+  prefix = '',
+  onPhase?: (phase: BusyPhase) => void
 ): Promise<string> {
   let response
   try {
@@ -56,6 +58,8 @@ async function streamComposed(
       ollama.abort()
       break
     }
+    // Tell the mascot whether we're still reasoning or writing the answer.
+    onPhase?.(streamPhase(chunk, thinking.length))
     const parsed = parseHarmony(chunk)
     onProgress(prefix + composeAssistantMessage(thinking || parsed.thinking, parsed.content))
     if (part.done) break
@@ -117,8 +121,10 @@ export async function runReasoning(opts: {
   messages: Message[]
   onProgress: (composed: string) => void
   shouldStop: () => boolean
+  onPhase?: (phase: BusyPhase) => void
 }): Promise<string> {
-  const { model, messages, onProgress, shouldStop } = opts
+  const { model, messages, onProgress, shouldStop, onPhase } = opts
+  onPhase?.('reading')
   const system = {
     role: 'system',
     content: `You are a careful reasoning assistant. For the user's problem:
@@ -126,7 +132,7 @@ export async function runReasoning(opts: {
 2. After </think>, give a clear, well-structured final answer. Do NOT repeat the raw reasoning in the answer — summarize conclusions.
 Always include the <think> block, even for short problems.`
   }
-  return streamComposed(getOllama(), model, [system, ...messages], onProgress, shouldStop)
+  return streamComposed(getOllama(), model, [system, ...messages], onProgress, shouldStop, '', onPhase)
 }
 
 /**
@@ -140,10 +146,13 @@ export async function runDeepResearch(opts: {
   effort: Effort
   onProgress: (composed: string) => void
   shouldStop: () => boolean
+  onPhase?: (phase: BusyPhase) => void
 }): Promise<{ content: string; sources: string }> {
-  const { model, prompt, effort, onProgress, shouldStop } = opts
+  const { model, prompt, effort, onProgress, shouldStop, onPhase } = opts
   const ollama = getOllama()
   const { queries: perRound, rounds } = EFFORT[effort]
+  // The whole search sweep is "reading"; synthesis below flips to "responding".
+  onPhase?.('reading')
 
   const evidence: string[] = []
   const sourceLines: string[] = []
@@ -224,7 +233,8 @@ ${evidence.join('\n\n').slice(0, 6000)}`
     synthesisMessages,
     onProgress,
     shouldStop,
-    transcript
+    transcript,
+    onPhase
   )
 
   return { content: answer, sources }

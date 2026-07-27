@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   computeMascotState,
   pickIdleActivity,
+  streamPhase,
   CELEBRATE_MS,
   type IdleActivity
 } from '../src/shared/mascot'
@@ -13,9 +14,13 @@ import {
  */
 
 describe('computeMascotState', () => {
-  it('is "thinking" whenever busy, even inside a celebrate window', () => {
-    expect(computeMascotState({ busy: true, now: 1000 })).toBe('thinking')
-    expect(computeMascotState({ busy: true, celebrateUntil: 5000, now: 1000 })).toBe('thinking')
+  it('picks the busy pose from the phase, even inside a celebrate window', () => {
+    // default when the phase is unknown (e.g. the coding agent) is responding
+    expect(computeMascotState({ busy: true, now: 1000 })).toBe('responding')
+    expect(computeMascotState({ busy: true, phase: 'reading', now: 1000 })).toBe('reading')
+    expect(computeMascotState({ busy: true, phase: 'responding', now: 1000 })).toBe('responding')
+    // busy always wins over a pending celebrate window
+    expect(computeMascotState({ busy: true, phase: 'reading', celebrateUntil: 5000, now: 1000 })).toBe('reading')
   })
 
   it('celebrates until the celebrate window elapses', () => {
@@ -32,6 +37,34 @@ describe('computeMascotState', () => {
 
   it('exposes a positive celebrate duration', () => {
     expect(CELEBRATE_MS).toBeGreaterThan(0)
+  })
+})
+
+describe('streamPhase', () => {
+  it('is reading while inside an unclosed <think> block', () => {
+    expect(streamPhase('<think>let me work this out', 0)).toBe('reading')
+    expect(streamPhase('<think>step 1\nstep 2', 0)).toBe('reading')
+  })
+
+  it('is responding once answer text follows a closed think block', () => {
+    expect(streamPhase('<think>reasoning</think>Here is the answer', 0)).toBe('responding')
+  })
+
+  it('stays reading after </think> until real answer text appears', () => {
+    expect(streamPhase('<think>done</think>', 0)).toBe('reading')
+    expect(streamPhase('<think>done</think>   \n ', 0)).toBe('reading')
+  })
+
+  it('uses separate reasoning tokens: reading when only thinking, no content yet', () => {
+    expect(streamPhase('', 42)).toBe('reading')
+  })
+
+  it('is responding when plain answer content is streaming (no think block)', () => {
+    expect(streamPhase('The sky is blue because', 0)).toBe('responding')
+  })
+
+  it('handles empty input as reading (about to start)', () => {
+    expect(streamPhase('', 0)).toBe('reading')
   })
 })
 

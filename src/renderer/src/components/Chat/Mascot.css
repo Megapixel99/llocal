@@ -26,7 +26,7 @@
   transform-origin: 50% 100%;
   animation: m-bob 3.2s ease-in-out infinite;
 }
-.llocal-mascot[data-state='thinking'] .m-body {
+.llocal-mascot[data-state='responding'] .m-body {
   animation: m-hunch 0.9s ease-in-out infinite;
 }
 .llocal-mascot[data-state='celebrate'] .m-body {
@@ -68,25 +68,39 @@
 }
 
 /* ---- state-specific props: hidden unless their state is active -------- */
-.m-only-think, .m-only-play, .m-only-celebrate { visibility: hidden; }
-.llocal-mascot[data-state='thinking'] .m-only-think { visibility: visible; }
+.m-only-read, .m-only-respond, .m-only-play, .m-only-celebrate { visibility: hidden; }
+.llocal-mascot[data-state='reading'] .m-only-read { visibility: visible; }
+.llocal-mascot[data-state='responding'] .m-only-respond { visibility: visible; }
 .llocal-mascot[data-activity='play'] .m-only-play { visibility: visible; }
 .llocal-mascot[data-state='celebrate'] .m-only-celebrate { visibility: visible; }
 
-/* ---- thinking: typing hands + thought dots ---------------------------- */
+/* ---- responding: typing hands on the laptop --------------------------- */
 .m-hand { transform-origin: 50% 100%; }
-.llocal-mascot[data-state='thinking'] .m-hand-l { animation: m-tap 0.34s ease-in-out infinite; }
-.llocal-mascot[data-state='thinking'] .m-hand-r { animation: m-tap 0.34s ease-in-out infinite 0.17s; }
+.llocal-mascot[data-state='responding'] .m-hand-l { animation: m-tap 0.34s ease-in-out infinite; }
+.llocal-mascot[data-state='responding'] .m-hand-r { animation: m-tap 0.34s ease-in-out infinite 0.17s; }
 @keyframes m-tap {
   0%, 100% { transform: translateY(0) }
-  50% { transform: translateY(-1.8px) }
+  50% { transform: translateY(-0.9px) }
 }
-.llocal-mascot[data-state='thinking'] .m-dot { animation: m-dot 1.2s ease-in-out infinite; }
+
+/* ---- reading: thought dots pulse, eyes scan the page, a page turns ----- */
+.llocal-mascot[data-state='reading'] .m-dot { animation: m-dot 1.2s ease-in-out infinite; }
 .m-dot-2 { animation-delay: 0.2s !important; }
 .m-dot-3 { animation-delay: 0.4s !important; }
 @keyframes m-dot {
   0%, 100% { opacity: 0.25; transform: translateY(0) }
   40% { opacity: 1; transform: translateY(-1.5px) }
+}
+.llocal-mascot[data-state='reading'] .m-face { animation: m-scan 2.2s ease-in-out infinite; }
+@keyframes m-scan {
+  0%, 100% { transform: translate(-1.6px, 0.8px) }
+  50% { transform: translate(1.6px, 0.8px) }
+}
+.m-page { transform-origin: left center; }
+.llocal-mascot[data-state='reading'] .m-page { animation: m-flip 2.8s ease-in-out infinite; }
+@keyframes m-flip {
+  0%, 60%, 100% { transform: scaleX(1) }
+  82% { transform: scaleX(0.04) }
 }
 
 /* ---- idle play: a little bouncing ball -------------------------------- */
