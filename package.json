@@ -19,6 +19,11 @@
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
+    "build:web": "vite build --config vite.web.config.ts",
+    "dev:web": "vite --config vite.web.config.ts",
+    "cap:sync": "npm run build:web && cap sync ios",
+    "cap:add:ios": "npm run build:web && cap add ios",
+    "cap:ios": "npm run cap:sync && cap open ios",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
@@ -31,6 +36,8 @@
     "build:linux:release": "electron-vite build && electron-builder --linux --publish always"
   },
   "dependencies": {
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/ios": "^6.1.2",
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
     "@guyplusplus/turndown-plugin-gfm": "^1.0.7",
@@ -85,6 +92,7 @@
     "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
     "@electron-toolkit/eslint-config-prettier": "^2.0.0",
     "@electron-toolkit/eslint-config-ts": "^1.0.1",
     "@electron-toolkit/tsconfig": "^1.0.1",

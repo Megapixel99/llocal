@@ -1,6 +1,7 @@
 import { ComponentProps, useState, DragEvent } from 'react'
 import { twMerge } from 'tailwind-merge'
 import { IoIosArrowForward, IoIosArrowBack } from 'react-icons/io'
+import { IoMenu } from 'react-icons/io5'
 import { AiFillCloseCircle } from 'react-icons/ai'
 import { fileDropAtom, settingsToggleAtom } from '@renderer/store/mocks'
 import { useAtom, useSetAtom } from 'jotai'
@@ -71,30 +72,64 @@ export const Sidebar = ({
   children,
   ...props
 }: ComponentProps<'aside'>): React.ReactElement => {
-  const [open, setOpen] = useState(true)
+  // Open by default on large screens; a slide-in drawer (closed) on small ones.
+  const [open, setOpen] = useState(
+    () => typeof window === 'undefined' || window.innerWidth >= 1024
+  )
   return (
-    <div className={`flex gap-2 items-center justify-center bg-transparent`}>
-      <aside
-        className={twMerge(
-          `transition-transform transform z-30 ${open ? 'translate-x-0 w-[250px] h-screen max-w-screen p-5' : '-translate-x-full w-0'} `,
-          className
-        )}
-        {...props}
-      >
-        {open && children}
-      </aside>
-      {open ? (
-        <IoIosArrowBack
-          onClick={() => setOpen((preValue) => !preValue)}
-          className="text-2xl cursor-pointer opacity-50"
-        />
-      ) : (
-        <IoIosArrowForward
-          onClick={() => setOpen((preValue) => !preValue)}
-          className="absolute cursor-pointer left-1 text-2xl opacity-50"
+    <>
+      {/* Hamburger to open the drawer — mobile only, shown when closed. */}
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="Open menu"
+          className="fixed top-3 left-3 z-40 p-2 rounded-xl bg-background/30 backdrop-blur-lg shadow-lg lg:hidden"
+        >
+          <IoMenu className="text-2xl" />
+        </button>
+      )}
+      {/* Dimmed backdrop behind the drawer — mobile only. */}
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
         />
       )}
-    </div>
+      <div className="flex gap-2 items-center justify-center bg-transparent">
+        <aside
+          className={twMerge(
+            `fixed lg:static top-0 left-0 z-40 h-screen p-5 overflow-hidden transition-all duration-300
+             w-[82vw] max-w-[300px] lg:max-w-none
+             ${open ? 'translate-x-0 lg:w-[250px]' : '-translate-x-full lg:w-0 lg:p-0'}
+             lg:translate-x-0`,
+            className
+          )}
+          {...props}
+        >
+          {/* Close affordance inside the drawer — mobile only. */}
+          <button
+            onClick={() => setOpen(false)}
+            aria-label="Close menu"
+            className="lg:hidden absolute top-4 right-4 opacity-60 hover:opacity-100"
+          >
+            <IoIosArrowBack className="text-2xl" />
+          </button>
+          {children}
+        </aside>
+        {/* Desktop collapse toggle. */}
+        <button
+          onClick={() => setOpen((prev) => !prev)}
+          aria-label="Toggle sidebar"
+          className="hidden lg:block cursor-pointer opacity-50 hover:opacity-100"
+        >
+          {open ? (
+            <IoIosArrowBack className="text-2xl" />
+          ) : (
+            <IoIosArrowForward className="text-2xl" />
+          )}
+        </button>
+      </div>
+    </>
   )
 }
 
