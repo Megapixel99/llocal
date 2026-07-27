@@ -10,6 +10,7 @@
  * and a Capacitor WebView) and mirrored into a jotai atom for reactive UI.
  */
 import { atom } from 'jotai'
+import type { McpServer } from '../../../shared/mcp'
 
 export type GitProvider = 'github'
 
@@ -29,6 +30,8 @@ export interface RemoteConfig {
   /** Bearer token shared with the companion server. */
   serverToken: string
   git: GitConfig
+  /** External MCP (Model Context Protocol) servers whose tools the coding agent can use. */
+  mcpServers: McpServer[]
 }
 
 const STORAGE_KEY = 'llocal.remoteConfig'
@@ -44,7 +47,8 @@ export const DEFAULT_REMOTE_CONFIG: RemoteConfig = {
     owner: '',
     repo: '',
     branch: 'main'
-  }
+  },
+  mcpServers: []
 }
 
 function readConfig(): RemoteConfig {
@@ -56,7 +60,8 @@ function readConfig(): RemoteConfig {
     return {
       ...DEFAULT_REMOTE_CONFIG,
       ...parsed,
-      git: { ...DEFAULT_REMOTE_CONFIG.git, ...(parsed.git ?? {}) }
+      git: { ...DEFAULT_REMOTE_CONFIG.git, ...(parsed.git ?? {}) },
+      mcpServers: parsed.mcpServers ?? []
     }
   } catch {
     return { ...DEFAULT_REMOTE_CONFIG }
@@ -80,6 +85,11 @@ export function getServerConfig(): { baseUrl: string; token: string } {
 
 export function getGitConfig(): GitConfig {
   return current.git
+}
+
+/** Non-reactive getter for the configured MCP servers. */
+export function getMcpServers(): McpServer[] {
+  return current.mcpServers ?? []
 }
 
 /** Persist a partial update and return the merged config. */

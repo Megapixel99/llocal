@@ -25,6 +25,7 @@ import { toast } from 'sonner'
 import { composeAssistantMessage, findUrls, parseHarmony, t } from '@renderer/utils/utils'
 import { makeApprovalRequester, runAgentLoop } from '@renderer/utils/agent'
 import { routeIntent, runDeepResearch, runReasoning } from '@renderer/utils/agents'
+import { getMcpServers } from '@renderer/platform/config'
 
 // interface experimentalSearchType {
 //   output: string,
@@ -127,13 +128,32 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
       if (activeTab === 'agent' && workingFolder) {
         try {
           const { tools, mutating } = await window.api.getAgentTools()
+          // Merge in tools from enabled MCP servers. They're treated as mutating so every MCP call
+          // goes through the AgentApproval gate, just like write_file / run_command.
+          const mcpServers = getMcpServers()
+          const mutatingSet = new Set(mutating)
+          let mergedTools = tools
+          if (mcpServers.some((s) => s.enabled)) {
+            try {
+              const mcpTools = (await window.api.mcpListTools(mcpServers)) as {
+                function?: { name?: string }
+              }[]
+              mergedTools = [...tools, ...mcpTools]
+              for (const tool of mcpTools) {
+                if (tool.function?.name) mutatingSet.add(tool.function.name)
+              }
+            } catch (error) {
+              toast.error(`${t('MCP: failed to load tools')}: ${error}`)
+            }
+          }
           const transcript = await runAgentLoop({
             model: modelName,
             root: workingFolder,
             mode: agentMode,
             messages: [...chat, { role: 'user', content: prompt }],
-            tools,
-            mutating: new Set(mutating),
+            tools: mergedTools,
+            mutating: mutatingSet,
+            mcpServers,
             requestApproval: makeApprovalRequester(setApproval),
             onProgress: (t) => setStream(t),
             shouldStop: () => stopGeneratingRef.current,

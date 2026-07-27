@@ -64,6 +64,8 @@ export interface LlocalApi {
   createPullRequest: (folder: string, title: string, body: string) => Promise<string>
   getAgentTools: () => Promise<{ tools: object[]; mutating: string[] }>
   runAgentTool: (root: string, name: string, args: object) => Promise<string>
+  mcpListTools: (servers: object[]) => Promise<object[]>
+  mcpCallTool: (servers: object[], name: string, args: object) => Promise<string>
 }
 
 const DESKTOP_ONLY = 'This feature is desktop-only. On mobile, use Settings → Repo & Console.'
@@ -197,6 +199,8 @@ export function createHttpApi(): LlocalApi {
     createWorktree: () => Promise.reject(new Error(DESKTOP_ONLY)),
     createPullRequest: () => Promise.reject(new Error(DESKTOP_ONLY)),
     getAgentTools: async () => ({ tools: [], mutating: [] }),
-    runAgentTool: () => Promise.reject(new Error(DESKTOP_ONLY))
+    runAgentTool: () => Promise.reject(new Error(DESKTOP_ONLY)),
+    mcpListTools: async () => [],
+    mcpCallTool: () => Promise.reject(new Error(DESKTOP_ONLY))
   }
 }

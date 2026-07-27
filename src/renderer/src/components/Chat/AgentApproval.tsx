@@ -17,16 +17,30 @@ export const AgentApproval = (): React.ReactElement | null => {
   if (!approval) return null
 
   const isCommand = approval.tool === 'run_command'
-  const heading = isCommand ? t('Run this command?') : t('Write this file?')
-  const detail = isCommand ? String(approval.args.command ?? '') : String(approval.args.path ?? '')
+  const isWrite = approval.tool === 'write_file'
+  const isMcp = approval.tool.startsWith('mcp__')
+
+  const heading = isCommand
+    ? t('Run this command?')
+    : isWrite
+      ? t('Write this file?')
+      : isMcp
+        ? t('Run this MCP tool?')
+        : t('Run this tool?')
+  const detail = isCommand
+    ? String(approval.args.command ?? '')
+    : isWrite
+      ? String(approval.args.path ?? '')
+      : approval.tool
 
   return Portal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <Card className="flex w-[34rem] max-w-full flex-col gap-3 rounded-2xl border-2 border-foreground border-opacity-5 p-5 shadow-xl">
         <h2 className="text-base font-medium">{heading}</h2>
         <pre className={preClass}>{detail}</pre>
-        {approval.tool === 'write_file' && (
-          <pre className={preClass}>{String(approval.args.content ?? '')}</pre>
+        {isWrite && <pre className={preClass}>{String(approval.args.content ?? '')}</pre>}
+        {!isCommand && !isWrite && Object.keys(approval.args).length > 0 && (
+          <pre className={preClass}>{JSON.stringify(approval.args, null, 2)}</pre>
         )}
         <div className="flex justify-end gap-2">
           <Button
