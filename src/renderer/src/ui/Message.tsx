@@ -1,4 +1,6 @@
 import { ComponentProps, useRef } from "react";
+import { useAtomValue } from "jotai";
+import { verbosityAtom } from "@renderer/store/mocks";
 import { Card } from "./Card";
 import Markdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
@@ -24,6 +26,9 @@ interface Message extends ComponentProps<'div'> {
 export const AiMessage = ({ message, stream, index = 0, ...props }: Message): React.ReactElement => {
   // TODO: Expand this to support multiple custom tags, at the moment it only supports <think></think>
 
+  // Reasoning-display preference (display only; the model still generates the same text).
+  const verbosity = useAtomValue(verbosityAtom)
+
   // this is crucial, since during streaming we need to see the custom tag irrespective.
   // the validation, invalidate's it which is technically correct, but UX wise incorrect.
   let validation = true // optimistic validation
@@ -41,7 +46,26 @@ export const AiMessage = ({ message, stream, index = 0, ...props }: Message): Re
         components={{
           // @ts-ignore because
           think: (data) => {
-            return data.children?.constructor == Array ? <Accordion title={stream ? "Thinking" : "Chain of thought"} content={data.children} loading={stream} initialOpen={stream} /> : <></>
+            if (data.children?.constructor != Array) return <></>
+            // Summary: hide the reasoning entirely (answer only).
+            if (verbosity === 'summary') return <></>
+            // Verbose: show the reasoning inline alongside the answer — nothing collapsed.
+            if (verbosity === 'verbose')
+              return (
+                <div className="markdown my-2 border-l-2 border-foreground/20 pl-3 text-sm opacity-70">
+                  {data.children}
+                </div>
+              )
+            // Normal: collapse once finished (open only while streaming). Thinking: keep it expanded.
+            const open = verbosity === 'thinking' ? true : stream
+            return (
+              <Accordion
+                title={stream ? "Thinking" : "Chain of thought"}
+                content={data.children}
+                loading={stream}
+                initialOpen={open}
+              />
+            )
           },
           a: (props) => {
             return (
