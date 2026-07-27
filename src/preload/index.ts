@@ -28,6 +28,7 @@ const api = {
   runAgentTool: (root: string, name: string, args: object): Promise<string> => ipcRenderer.invoke('runAgentTool', root, name, args),
   similaritySearch: (chosenVectorDbsPath: addKnowledgeType[], prompt: string): Promise<ragReturn> => ipcRenderer.invoke('similaritySearch', chosenVectorDbsPath, prompt),
   getVectorDbList: (): Promise<addKnowledgeType[]> => ipcRenderer.invoke('getVectorDbList'),
+  listCommands: (): Promise<commandType[]> => ipcRenderer.invoke('listCommands'),
   deleteVectorDb: (indexPath: string): Promise<boolean> => ipcRenderer.invoke('deleteVectorDb', indexPath),
   translate: (key: string, options: object): string => ipcRenderer.sendSync('translate', key, options),
   changeLanguage: (language: string): Promise<boolean> => ipcRenderer.invoke('changeLanguage', language),

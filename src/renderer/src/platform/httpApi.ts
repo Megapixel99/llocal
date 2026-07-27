@@ -21,6 +21,16 @@ interface RagReturn {
   prompt: string
   sources: string
 }
+interface CommandType {
+  name: string
+  namespace: string
+  description: string
+  argumentHint: string
+  model: string
+  allowedTools: string
+  body: string
+  source: string
+}
 
 /** Shape identical to the Window['api'] contract in src/preload/index.d.ts. */
 export interface LlocalApi {
@@ -36,6 +46,7 @@ export interface LlocalApi {
   similaritySearch: (selectedKnowledge: AddKnowledgeType[], prompt: string) => Promise<RagReturn>
   getVectorDbList: () => Promise<AddKnowledgeType[]>
   deleteVectorDb: (indexPath: string) => Promise<boolean>
+  listCommands: () => Promise<CommandType[]>
   translate: (key: string, options: object) => string
   changeLanguage: (language: string) => Promise<boolean>
   getLanguages: () => Promise<readonly string[]>
@@ -142,6 +153,16 @@ export function createHttpApi(): LlocalApi {
       }),
 
     getVectorDbList: () => serverJson<AddKnowledgeType[]>('/rag/list'),
+
+    // Commands live on the companion-server host's filesystem. If the server is
+    // older and lacks the endpoint, degrade to "no commands" rather than error.
+    listCommands: async () => {
+      try {
+        return await serverJson<CommandType[]>('/commands/list')
+      } catch {
+        return []
+      }
+    },
 
     deleteVectorDb: async (indexPath) => {
       await serverFetch('/rag/delete', {

@@ -9,6 +9,17 @@
   fileName: string
 }
 
+ interface commandType {
+  name: string
+  namespace: string
+  description: string
+  argumentHint: string
+  model: string
+  allowedTools: string
+  body: string
+  source: string
+}
+
  interface gitCapabilities {
   git: boolean
   gh: boolean

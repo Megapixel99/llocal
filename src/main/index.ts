@@ -14,6 +14,8 @@ import { deleteVectorDb, getFileName, getSelectedFiles, getSelectedFolder, getVe
 import { generateDocs, SUPPORTED_EXTENSIONS } from './utils/docs-generator'
 import { createPullRequest, createWorktree, getGitCapabilities, getGitInfo, listWorktrees } from './utils/git-utils'
 import { AGENT_TOOLS, MUTATING_TOOLS, runAgentTool } from './utils/agent-tools'
+import { listCommands } from './utils/commands'
+import { Command } from '../shared/commands'
 import path from 'path'
 import pie from "puppeteer-in-electron"
 import puppeteer from "puppeteer-core";
@@ -327,6 +329,11 @@ app.whenReady().then(() => {
     async (_event, root: string, name: string, args: Record<string, unknown>) =>
       runAgentTool(root, name, args)
   )
+
+  // ---- Slash commands (Claude Code style; e.g. github.com/wshobson/commands) ----
+  // Scans ~/.claude/commands, the LLocal commands folder, and the bundled
+  // examples, returning prompt templates the renderer expands locally.
+  ipcMain.handle('listCommands', async (): Promise<Command[]> => listCommands())
 
   ipcMain.handle('similaritySearch', async (_event, selectedKnowledge: addKnowledgeType[], prompt: string): Promise<ragReturn> => {
     const response = await similaritySearch(selectedKnowledge, prompt)

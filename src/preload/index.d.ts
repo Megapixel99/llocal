@@ -16,6 +16,17 @@ interface ragReturn {
   sources: string
 }
 
+interface commandType {
+  name: string
+  namespace: string
+  description: string
+  argumentHint: string
+  model: string
+  allowedTools: string
+  body: string
+  source: string
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -40,6 +51,7 @@ declare global {
       runAgentTool: (root: string, name: string, args: object) => Promise<string>,
       similaritySearch: (selectedKnowledge: addKnowledgeType[], prompt: string) => Promise<ragReturn>,
       getVectorDbList: () => Promise<addKnowledgeType[]>,
+      listCommands: () => Promise<commandType[]>,
       deleteVectorDb: (indexPath: string) => Promise<boolean>,
       translate: (key: string, options: object) => string,
       changeLanguage: (language: string) => Promise<boolean>,

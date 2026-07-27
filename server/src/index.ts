@@ -16,6 +16,7 @@ import { websearchRouter } from './websearch.ts'
 import { ttsRouter } from './tts.ts'
 import { gitRouter } from './git.ts'
 import { execRouter } from './exec.ts'
+import { commandsRouter } from './commands.ts'
 import { ollamaProxyRouter } from './ollama-proxy.ts'
 
 const app = express()
@@ -45,6 +46,7 @@ app.use('/websearch', websearchRouter)
 app.use('/tts', ttsRouter)
 app.use('/git', gitRouter)
 app.use('/exec', execRouter)
+app.use('/commands', commandsRouter)
 
 app.listen(config.port, () => {
   console.log(`[llocal-server] listening on :${config.port}`)

@@ -21,6 +21,19 @@ Aiming to provide a seamless and privacy driven chatting experience with open-so
 - Responses are rendered as markdown (Supporting Code Blocks with syntax highlighting, tabular formats and much more).
 - Multiple themes (5 themes all suporting both light and dark mode)
 - Seamless integration with Ollama, from download to install.
+- Slash commands — reusable prompt templates in the Claude Code format (works with collections like [wshobson/commands](https://github.com/wshobson/commands)).
+
+### Slash commands
+
+Type `/` in the chat box to browse available commands. Pick one, type your arguments after it, and send — the command's template is expanded (`$ARGUMENTS` and `$1`, `$2`, … are substituted) and the result is sent to the model.
+
+Commands are plain markdown files, discovered from (highest priority first):
+
+1. `~/.claude/commands` — the standard Claude Code location, so any collection installed there (e.g. `wshobson/commands`) works automatically.
+2. The LLocal commands folder in your app data directory (`.../LLocal/commands`).
+3. A few examples bundled with the app.
+
+A command file's name is the command name and sub-folders become `:`-separated namespaces (so `tools/api-scaffold.md` is invoked as `/tools:api-scaffold`). Optional YAML frontmatter (`description`, `argument-hint`, `model`, `allowed-tools`) is used for the picker.
 
 ## What's ahead?
 
