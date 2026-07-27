@@ -25,6 +25,7 @@ import { AgentModeSelector } from './AgentModeSelector'
 import { SwarmPanel } from './SwarmPanel'
 import { EffortSelector } from './EffortSelector'
 import { AgentApproval } from './AgentApproval'
+import { Mascot } from './Mascot'
 import { AutoComplete } from './AutoComplete'
 import { CommandPalette } from './CommandPalette'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
@@ -187,6 +188,8 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   //
   return (
     <div className='relative w-full md:max-w-[48rem] flex flex-col'>
+      {/* Little composer companion, perched on the top edge of the input box. */}
+      <Mascot className='absolute right-3 -top-[52px] z-10' />
       {commandMatches.length > 0
         ? <CommandPalette className='absolute -bottom-3 transform -translate-y-1/2' commands={commandMatches} onSelectCommand={handleSelectCommand} />
         : (isAutoComplete && autoCompleteList.length > 0) && <AutoComplete className='absolute -bottom-3 transform -translate-y-1/2' list={autoCompleteList} reset={reset} />}
