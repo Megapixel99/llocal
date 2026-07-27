@@ -12,6 +12,19 @@ import {
   formatResearchResult,
   isResearchToolName
 } from '@renderer/utils/agent-research-tools'
+import {
+  SUBAGENT_TOOL_NAME,
+  allowedAgentTypes,
+  canSpawnSubagent,
+  effectiveChildPolicy,
+  extractSubagentTask,
+  extractSubagentTypeId,
+  filterToolsForPolicy,
+  formatSubagentResult,
+  getAgentType,
+  subagentTool,
+  type ToolPolicy
+} from '../../../shared/subagent'
 import type {
   NotificationEvent,
   NotificationPayload,
@@ -80,7 +93,7 @@ export function resolveAgentApproval(
 function toolCallBlock(name: string, args: Record<string, unknown>): string {
   if (name === 'run_command') return `\n\n**\`$ ${String(args.command ?? '')}\`**\n`
   if (name === 'write_file') return `\n\n**✎ write** \`${String(args.path ?? '')}\`\n`
-  const detail = args.path ?? args.query ?? args.problem ?? ''
+  const detail = args.path ?? args.query ?? args.problem ?? args.task ?? ''
   return `\n\n**🔧 ${name}** \`${String(detail)}\`\n`
 }
 
@@ -111,6 +124,12 @@ export async function runAgentLoop(opts: {
   notificationPrefs?: NotificationPrefs
   /** DeepResearch breadth for the `deep_research` tool (defaults to 'medium'). */
   effort?: Effort
+  /** Sub-agent nesting depth (top-level run is 0). Bounds recursion. */
+  depth?: number
+  /** This run's tool policy: 'full' (default) or 'readonly' for read-only sub-agents. */
+  policy?: ToolPolicy
+  /** Extra role instructions (a sub-agent type's system prompt) prepended to the system message. */
+  rolePrompt?: string
 }): Promise<string> {
   const {
     model,
@@ -125,11 +144,20 @@ export async function runAgentLoop(opts: {
   } = opts
   const mcpServers = opts.mcpServers ?? []
   const effort: Effort = opts.effort ?? 'medium'
+  const depth = opts.depth ?? 0
+  const policy: ToolPolicy = opts.policy ?? 'full'
 
   // Offer the DeepResearch / Reasoning capabilities as tools too. They are
   // read-only (no file writes, no commands), so they stay available even in plan
-  // mode and never require approval.
-  const baseTools = [...opts.tools, ...(AGENT_RESEARCH_TOOLS as unknown as object[])]
+  // mode and never require approval. `spawn_subagent` (also read-only itself —
+  // the sub-agent's own actions are gated) is offered until the depth cap, and a
+  // read-only agent may only delegate to read-only sub-agents.
+  const canDelegate = canSpawnSubagent(depth)
+  const baseTools = [
+    ...opts.tools,
+    ...(AGENT_RESEARCH_TOOLS as unknown as object[]),
+    ...(canDelegate ? [subagentTool(allowedAgentTypes(policy))] : [])
+  ]
 
   // In plan mode the model must not modify anything, so we don't even offer the mutating tools.
   const tools =
@@ -145,13 +173,18 @@ export async function runAgentLoop(opts: {
       ? '\nYou are in PLAN MODE: you may read, list, and search, but you MUST NOT modify files or run commands. Produce a clear, step-by-step plan of the changes you would make. Do not make any changes.'
       : ''
 
+  const roleNote = opts.rolePrompt ? `\n${opts.rolePrompt}` : ''
+  const delegateNote = canDelegate
+    ? `\nFor a large, self-contained piece of work, call \`${SUBAGENT_TOOL_NAME}\` to delegate it to a focused sub-agent (explorer/coder/reviewer) and get back just its result — handy for isolating research or running independent tasks.`
+    : ''
+
   const system = {
     role: 'system',
     content: `You are a coding agent working inside the folder: ${root}
 Use the provided tools to inspect${mode === 'plan' ? '' : ', modify,'} the project${mode === 'plan' ? '' : ' and run commands'}. Paths are relative to that folder.
 Work step by step: read/list/search to understand before ${mode === 'plan' ? 'planning' : 'changing anything'}.
-For a hard sub-problem, call \`${REASON_TOOL_NAME}\` to think it through step by step before acting. For anything outside this codebase — library or API docs, package versions, an unfamiliar error, current facts — call \`${DEEP_RESEARCH_TOOL_NAME}\` to look it up on the web (it returns a cited summary).
-When the task is complete, stop calling tools and give a short summary.${planNote}`
+For a hard sub-problem, call \`${REASON_TOOL_NAME}\` to think it through step by step before acting. For anything outside this codebase — library or API docs, package versions, an unfamiliar error, current facts — call \`${DEEP_RESEARCH_TOOL_NAME}\` to look it up on the web (it returns a cited summary).${delegateNote}
+When the task is complete, stop calling tools and give a short summary.${planNote}${roleNote}`
   }
 
   const working: AnyMessage[] = [system, ...opts.messages]
@@ -193,6 +226,35 @@ When the task is complete, stop calling tools and give a short summary.${planNot
 
       const run = async (): Promise<string> => {
         try {
+          // Delegate a self-contained subtask to a fresh, scoped sub-agent (a nested
+          // runAgentLoop). Its own mutating actions still go through approval; a
+          // read-only parent can only spawn read-only children; recursion is depth-bounded.
+          if (name === SUBAGENT_TOOL_NAME) {
+            if (!canDelegate) return 'Error: maximum sub-agent depth reached — do this work yourself.'
+            const task = extractSubagentTask(args)
+            if (!task) return 'Error: `spawn_subagent` needs a non-empty "task".'
+            const type = getAgentType(extractSubagentTypeId(args))
+            const childPolicy = effectiveChildPolicy(policy, type.toolPolicy)
+            const childTranscript = await runAgentLoop({
+              model,
+              root,
+              mode,
+              messages: [{ role: 'user', content: task }],
+              tools: filterToolsForPolicy(opts.tools, mutating, childPolicy),
+              mutating,
+              requestApproval,
+              onProgress: (partial) => onProgress(transcript + '\n' + partial),
+              shouldStop,
+              onToolCall,
+              mcpServers,
+              notificationPrefs,
+              effort,
+              depth: depth + 1,
+              policy: childPolicy,
+              rolePrompt: type.systemPrompt
+            })
+            return formatSubagentResult(type.name, task, childTranscript)
+          }
           // Reasoning / DeepResearch run here in the renderer (they drive Ollama and web
           // search directly), streaming their progress under the tool block.
           if (isResearchToolName(name)) {
@@ -257,12 +319,15 @@ When the task is complete, stop calling tools and give a short summary.${planNot
   }
 
   // Long-running run finished — nudge the user (main only shows it when the
-  // window is unfocused). Summary is the first non-empty line of the transcript.
-  const summary = transcript
-    .split('\n')
-    .map((line) => line.trim())
-    .find((line) => line.length > 0)
-  notify('agent-complete', { summary }, notificationPrefs)
+  // window is unfocused). Only the top-level run notifies; nested sub-agents
+  // finishing shouldn't each ping the OS. Summary is the first non-empty line.
+  if (depth === 0) {
+    const summary = transcript
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line.length > 0)
+    notify('agent-complete', { summary }, notificationPrefs)
+  }
 
   return transcript || '_(no output)_'
 }
