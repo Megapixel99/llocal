@@ -28,6 +28,10 @@ interface GitProvider {
     ref: RepoRef,
     input: { title: string; body: string; head: string; base: string }
   ): Promise<{ url: string }>
+  /** List repositories the token can access (for the mobile repo picker). */
+  listRepos(ref: {
+    token?: string
+  }): Promise<Array<{ owner: string; repo: string; fullName: string; branch: string; private: boolean }>>
 }
 
 const gitHubProvider: GitProvider = {
@@ -49,6 +53,29 @@ const gitHubProvider: GitProvider = {
     if (!res.ok) throw new Error(`GitHub API ${res.status}: ${await res.text()}`)
     const data = (await res.json()) as { html_url: string }
     return { url: data.html_url }
+  },
+  async listRepos({ token }) {
+    const auth = token || config.githubToken
+    if (!auth) throw new Error('No GitHub token configured')
+    const res = await fetch(
+      'https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member',
+      { headers: { Authorization: `Bearer ${auth}`, Accept: 'application/vnd.github+json' } }
+    )
+    if (!res.ok) throw new Error(`GitHub API ${res.status}: ${await res.text()}`)
+    const data = (await res.json()) as Array<{
+      full_name: string
+      name: string
+      owner: { login: string }
+      default_branch: string
+      private: boolean
+    }>
+    return data.map((r) => ({
+      owner: r.owner.login,
+      repo: r.name,
+      fullName: r.full_name,
+      branch: r.default_branch,
+      private: r.private
+    }))
   }
 }
 
@@ -105,6 +132,17 @@ gitRouter.post('/clone', async (req, res) => {
     ])
     if (clone.code !== 0) return res.status(500).json({ error: clone.stderr || 'clone failed' })
     res.json({ repoKey: repoKeyOf(ref.owner, ref.repo), dir })
+  } catch (err) {
+    res.status(500).json({ error: String(err) })
+  }
+})
+
+// List repositories the configured token can access (mobile repo picker).
+gitRouter.post('/repos', async (req, res) => {
+  try {
+    const token = (req.body as { token?: string })?.token
+    const repos = await getProvider().listRepos({ token })
+    res.json({ repos })
   } catch (err) {
     res.status(500).json({ error: String(err) })
   }

@@ -257,7 +257,8 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
             </button>
           )}
         </div>
-        <div className='flex items-center gap-2'>
+        {/* pr-14 reserves the bottom-right corner for the mascot (Lo) so it doesn't cover the meter */}
+        <div className='flex items-center gap-2 pr-14'>
           {queue.length > 0 && (
             <button
               type="button"

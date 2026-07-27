@@ -106,11 +106,12 @@ export const Sidebar = ({
           )}
           {...props}
         >
-          {/* Close affordance inside the drawer — mobile only. */}
+          {/* Close affordance — a collapse handle on the drawer's right edge (mobile only), kept
+              clear of the Chat/Code tabs at the top. */}
           <button
             onClick={() => setOpen(false)}
             aria-label="Close menu"
-            className="lg:hidden absolute top-4 right-4 opacity-60 hover:opacity-100"
+            className="lg:hidden absolute top-1/2 right-1 -translate-y-1/2 z-10 rounded-full bg-foreground/10 dark:bg-background/40 p-1 backdrop-blur opacity-70 hover:opacity-100"
           >
             <IoIosArrowBack className="text-2xl" />
           </button>

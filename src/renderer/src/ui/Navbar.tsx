@@ -8,7 +8,7 @@ export const NavbarItem = ({
   ...props
 }: ComponentProps<'div'>): React.ReactElement => {
   return (
-    <Card className={cn( 'p-3 px-6 w-fit text-center opacity-50 hover:opacity-100 transition-all cursor-pointer',className)} {...props}>
+    <Card className={cn( 'p-3 px-6 w-fit shrink-0 whitespace-nowrap text-center opacity-50 hover:opacity-100 transition-all cursor-pointer',className)} {...props}>
       {children}
     </Card>
   )
@@ -20,7 +20,7 @@ export const Navbar = ({
   ...props
 }: ComponentProps<'div'>): React.ReactElement => {
   return (
-    <Card className={cn('flex w-fit gap-2 justify-center items-center p-3 px-4',className)} {...props}>
+    <Card className={cn('flex w-fit max-w-[92vw] gap-2 items-center p-3 px-4 overflow-x-auto lg:max-w-none lg:overflow-visible',className)} {...props}>
       {children}
     </Card>
   )

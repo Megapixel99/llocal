@@ -47,7 +47,7 @@ const Content = ({ children, className, ...props }: ComponentProps<'div'>): Reac
   const ref = useClickOutside<HTMLDivElement>(() => setOpen(false))
   return <>
     {isOpen && Portal(<div ref={ref} className={cn("fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 m-auto z-50 overflow-visible flex items-center justify-center")} {...props}>
-      <Card className={cn("border-2 border-foreground border-opacity-5 rounded-2xl shadow-xl", className)}>{children}</Card>
+      <Card className={cn("border-2 border-foreground border-opacity-5 rounded-2xl shadow-xl max-w-[92vw] max-h-[90vh] overflow-auto", className)}>{children}</Card>
     </div>)
     }
   </>

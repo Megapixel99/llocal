@@ -61,7 +61,7 @@ export const PullModel = ({ className, ...props }: ComponentProps<'form'>): Reac
           name="model"
           register={register}
           disabled={isLoading}
-          className="h-auto w-96"
+          className="h-auto w-full max-w-[24rem]"
           placeholder="Not sure? check the options below!"
         />
         <Button
@@ -72,7 +72,7 @@ export const PullModel = ({ className, ...props }: ComponentProps<'form'>): Reac
           <PiMagnifyingGlassFill />
         </Button>
       </form>
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {breadcrumbs.map((val, index) => {
           return (
 

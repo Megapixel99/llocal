@@ -437,6 +437,12 @@ and you **NEED** to strictly follow the following output schema:
       setLoading(false)
       setGenerating(false)
       setImageAttachment('')
+      // Clear the streaming buffer + stop flag on failure too. Otherwise a mid-generation error
+      // leaves a ghost streaming bubble and — because "Start a chat" is gated on an empty buffer —
+      // permanently disables starting a new chat.
+      setStream('')
+      setStopGenerating(false)
+      getOllama().abort()
       // handling the error with toasts
       toast(`${error}`)
     }

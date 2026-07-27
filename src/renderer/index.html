@@ -3,6 +3,11 @@
 
 <head>
   <meta charset="UTF-8" />
+  <!-- Render at the device's real width on mobile (Capacitor/WKWebView) instead of a scaled-down
+       ~980px desktop width; viewport-fit=cover lets the UI extend under the notch / home indicator.
+       Harmless on desktop Electron. -->
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
 
     <!-- <script src="https://unpkg.com/react-scan/dist/auto.global.js"></script> -->
