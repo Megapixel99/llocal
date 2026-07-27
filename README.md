@@ -19,6 +19,7 @@ Aiming to provide a seamless and privacy driven chatting experience with open-so
 - Web search (i.e Website scraper aswell as duckduckgo search inbuilt) for all models.
 - Chat with Files with persistence through vector db's being stored llocally. (Supported file types are PDF, PPTX, DOCX, CSV & TXT)
 - Responses are rendered as markdown (Supporting Code Blocks with syntax highlighting, tabular formats and much more).
+- Live preview for web based code blocks (HTML, CSS, SVG & JavaScript) rendered safely in a sandbox, with a console panel and fullscreen view.
 - Multiple themes (5 themes all suporting both light and dark mode)
 - Seamless integration with Ollama, from download to install.
 
@@ -31,7 +32,7 @@ Aiming to provide a seamless and privacy driven chatting experience with open-so
 - Ollama Model Catalogue (Information about all models)
 - Support for `<think />` code blocks ✅
 - Agents, the first two would be `DeepResearch` and `Reasoning`
-- Code live preview for web based code (Something like what Claude Provides)
+- Code live preview for web based code (Something like what Claude Provides) ✅
 - Text to Speech Models (only if we can get to be similar to a human like response) ✅
 - Community wallpapers
 - Community themes (something like what spicetify does)

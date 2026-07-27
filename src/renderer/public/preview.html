@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+    Live-preview host frame for web based code (see src/renderer/src/ui/WebPreview.tsx).
+
+    The main renderer runs under a strict Content-Security-Policy. Local-scheme
+    documents (srcdoc/data:/blob:) inherit that policy and would refuse the inline
+    scripts a preview needs to run. This file is loaded as a *real* same-origin
+    navigation, so it uses its own policy below instead of inheriting the app's.
+    It is embedded in a sandbox WITHOUT allow-same-origin, so the code it renders
+    lives in an opaque origin and cannot reach the app, its storage or its cookies.
+  -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' data: blob: 'unsafe-inline' 'unsafe-eval'; img-src * data: blob:; media-src * data: blob:; font-src * data:; style-src * 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; frame-src 'self' data: blob:; connect-src *"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #ffffff;
+      }
+
+      #llocal-preview-frame {
+        display: block;
+        border: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <script>
+      ;(function () {
+        // Render each payload into a fresh inner iframe. The inner frame inherits
+        // this shell's permissive policy (it is a srcdoc child of this document),
+        // so the previewed inline scripts and styles run. Replacing the element
+        // wholesale gives every render a clean slate — no leaked globals, timers
+        // or listeners between updates.
+        function render(html) {
+          var previous = document.getElementById('llocal-preview-frame')
+          var frame = document.createElement('iframe')
+          frame.id = 'llocal-preview-frame'
+          frame.setAttribute(
+            'sandbox',
+            'allow-scripts allow-modals allow-forms allow-popups allow-pointer-lock'
+          )
+          frame.setAttribute('srcdoc', html)
+          if (previous) previous.replaceWith(frame)
+          else document.body.appendChild(frame)
+        }
+
+        window.addEventListener('message', function (event) {
+          var data = event.data
+          if (!data || typeof data !== 'object') return
+          if (data.type === 'llocal-preview-render') {
+            render(typeof data.html === 'string' ? data.html : '')
+          }
+        })
+
+        // Forward console/error messages from the inner (previewed) frame up to
+        // the app so it can display them in the console panel.
+        window.addEventListener('message', function (event) {
+          var data = event.data
+          if (data && data.type === 'llocal-preview-console') {
+            try {
+              parent.postMessage(data, '*')
+            } catch (e) {
+              /* ignore */
+            }
+          }
+        })
+
+        // Announce readiness so the app knows when it can post the first payload.
+        try {
+          parent.postMessage({ type: 'llocal-preview-ready' }, '*')
+        } catch (e) {
+          /* ignore */
+        }
+      })()
+    </script>
+  </body>
+</html>

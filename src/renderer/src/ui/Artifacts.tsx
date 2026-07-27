@@ -1,24 +1,34 @@
-import { cn } from "@renderer/utils/utils";
-import { ComponentProps, ReactElement } from "react";
-import { MermaidWrapper } from "./Mermaid";
+import { cn } from '@renderer/utils/utils'
+import { ComponentProps, ReactElement } from 'react'
+import { MermaidWrapper } from './Mermaid'
+import WebPreview from './WebPreview'
+import { isPreviewableLanguage } from '@renderer/utils/preview'
 
 interface ArtifactsProps extends ComponentProps<'div'> {
-  language: string,
+  language: string
   code: string
 }
 // this component is to handle all the code that is to be made runnable
-// at the moment the planned support is only for Mermaid
-export default function Artifacts({ className, language, code, ...props }: ArtifactsProps): ReactElement {
+// supported: Mermaid diagrams and live preview for web based code (HTML/CSS/SVG/JS)
+export default function Artifacts({
+  className,
+  language,
+  code,
+  ...props
+}: ArtifactsProps): ReactElement {
   const artifactSelector = (): ReactElement => {
     switch (language) {
-      case "mermaid":
+      case 'mermaid':
         return <MermaidWrapper code={code} />
       default:
+        if (isPreviewableLanguage(language)) return <WebPreview language={language} code={code} />
         return <h1>Not suppported</h1>
     }
   }
 
-  return (<div className={cn("overflow-x-scroll", className)} {...props}>
-    {artifactSelector()}
-  </div>)
+  return (
+    <div className={cn('overflow-x-scroll', className)} {...props}>
+      {artifactSelector()}
+    </div>
+  )
 }
