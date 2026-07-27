@@ -1,12 +1,15 @@
-import { backgroundImageAtom, modelListAtom, prefModelAtom, suggestionsAtom, transparencyModeAtom, } from '@renderer/store/mocks'
-import { useSetAtom } from 'jotai'
+import { backgroundImageAtom, modelListAtom, notificationPrefsAtom, prefModelAtom, suggestionsAtom, transparencyModeAtom, } from '@renderer/store/mocks'
+import { useAtom, useSetAtom } from 'jotai'
 import { listModels } from './useOllama'
+import type { NotificationEvent, NotificationPrefs } from '../../../shared/notifications'
 interface useLocalReturn {
   setBackground: (pref: string) => void
   setModelChoice: (pref: string) => void
   setList: (list: listModels[]) => void
   setShowSuggestion: (pref: boolean) => void
   setTransparency: (pref: boolean) => void
+  setNotificationsEnabled: (pref: boolean) => void
+  setNotificationEvent: (event: NotificationEvent, pref: boolean) => void
 }
 export const useLocal = (): useLocalReturn => {
   const setBackgroundImage = useSetAtom(backgroundImageAtom)
@@ -14,6 +17,7 @@ export const useLocal = (): useLocalReturn => {
   const setModelList = useSetAtom(modelListAtom)
   const setSuggestions = useSetAtom(suggestionsAtom)
   const setTransparencyMode = useSetAtom(transparencyModeAtom)
+  const [notificationPrefs, setNotificationPrefs] = useAtom(notificationPrefsAtom)
 
   const setBackground = (pref: string): void => {
     if (pref == 'none') {
@@ -56,5 +60,21 @@ export const useLocal = (): useLocalReturn => {
     localStorage.setItem('transparencyMode', String(pref))
     setTransparencyMode(pref)
   }
-  return { setBackground, setModelChoice, setList, setShowSuggestion, setTransparency }
+  // Persist notification prefs (localStorage) and push them to main so main-side
+  // triggers (sensitive-file-access) see the latest settings.
+  const persistNotificationPrefs = (prefs: NotificationPrefs): void => {
+    localStorage.setItem('notificationPrefs', JSON.stringify(prefs))
+    setNotificationPrefs(prefs)
+    window.api?.notifySetPrefs?.(prefs)
+  }
+  const setNotificationsEnabled = (pref: boolean): void => {
+    persistNotificationPrefs({ ...notificationPrefs, enabled: pref })
+  }
+  const setNotificationEvent = (event: NotificationEvent, pref: boolean): void => {
+    persistNotificationPrefs({
+      ...notificationPrefs,
+      events: { ...notificationPrefs.events, [event]: pref }
+    })
+  }
+  return { setBackground, setModelChoice, setList, setShowSuggestion, setTransparency, setNotificationsEnabled, setNotificationEvent }
 }

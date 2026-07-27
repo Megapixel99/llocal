@@ -2,6 +2,8 @@ import fs from 'fs'
 import path from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import { isSensitivePath } from '../../shared/notifications'
+import { showNotification } from './notifier'
 
 const pexec = promisify(exec)
 
@@ -126,7 +128,10 @@ export async function runAgentTool(
   if (!root) throw new Error('No working folder is set')
   switch (name) {
     case 'read_file': {
-      const abs = resolveInside(root, String(args.path ?? ''))
+      const rel = String(args.path ?? '')
+      const abs = resolveInside(root, rel)
+      // Opt-in heads-up when the agent touches secrets (respects the user's prefs).
+      if (isSensitivePath(rel)) showNotification('sensitive-file-access', { path: rel })
       if (fs.statSync(abs).size > MAX_FILE_BYTES) return `File too large (> ${MAX_FILE_BYTES} bytes).`
       return clip(fs.readFileSync(abs, 'utf-8'))
     }
@@ -140,10 +145,12 @@ export async function runAgentTool(
     case 'search':
       return searchText(root, String(args.query ?? ''))
     case 'write_file': {
-      const abs = resolveInside(root, String(args.path ?? ''))
+      const rel = String(args.path ?? '')
+      const abs = resolveInside(root, rel)
+      if (isSensitivePath(rel)) showNotification('sensitive-file-access', { path: rel })
       fs.mkdirSync(path.dirname(abs), { recursive: true })
       fs.writeFileSync(abs, String(args.content ?? ''), 'utf-8')
-      return `Wrote ${String(args.path)}`
+      return `Wrote ${rel}`
     }
     case 'run_command': {
       try {

@@ -1,12 +1,31 @@
 import { getOllama } from '@renderer/utils/ollama'
 import { parseHarmony } from '@renderer/utils/utils'
 import { isMcpToolName, type McpServer } from '../../../shared/mcp'
+import type {
+  NotificationEvent,
+  NotificationPayload,
+  NotificationPrefs
+} from '../../../shared/notifications'
 
 export type AgentMode = 'manual' | 'acceptEdits' | 'plan' | 'auto'
 
 export interface AgentApproval {
   tool: string
   args: Record<string, unknown>
+}
+
+// Fire-and-forget native notification (main applies the pure shouldNotify policy).
+function notify(
+  event: NotificationEvent,
+  payload: NotificationPayload,
+  prefs?: NotificationPrefs
+): void {
+  if (!prefs) return
+  try {
+    window.api?.notify?.(event, payload, prefs)
+  } catch {
+    /* notifications are best-effort */
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -18,11 +37,22 @@ const MAX_ITERATIONS = 25
 let approvalResolver: ((ok: boolean) => void) | null = null
 
 export function makeApprovalRequester(
-  setApproval: (req: AgentApproval | null) => void
+  setApproval: (req: AgentApproval | null) => void,
+  notificationPrefs?: NotificationPrefs
 ): (req: AgentApproval) => Promise<boolean> {
   return (req) =>
     new Promise<boolean>((resolve) => {
       approvalResolver = resolve
+      // Ping the OS when an action is waiting on the user (respects their prefs).
+      notify(
+        'approval-needed',
+        {
+          tool: req.tool,
+          command: String(req.args.command ?? ''),
+          path: String(req.args.path ?? '')
+        },
+        notificationPrefs
+      )
       setApproval(req)
     })
 }
@@ -67,8 +97,19 @@ export async function runAgentLoop(opts: {
   onToolCall?: (call: { tool: string; durationMs: number }) => void
   /** Enabled MCP servers whose tools were merged into `tools`; MCP calls are routed to them. */
   mcpServers?: McpServer[]
+  notificationPrefs?: NotificationPrefs
 }): Promise<string> {
-  const { model, root, mode, mutating, requestApproval, onProgress, shouldStop, onToolCall } = opts
+  const {
+    model,
+    root,
+    mode,
+    mutating,
+    requestApproval,
+    onProgress,
+    shouldStop,
+    onToolCall,
+    notificationPrefs
+  } = opts
   const mcpServers = opts.mcpServers ?? []
 
   // In plan mode the model must not modify anything, so we don't even offer the mutating tools.
@@ -167,6 +208,14 @@ Work step by step: read/list/search to understand before ${mode === 'plan' ? 'pl
       working.push({ role: 'tool', content: result })
     }
   }
+
+  // Long-running run finished — nudge the user (main only shows it when the
+  // window is unfocused). Summary is the first non-empty line of the transcript.
+  const summary = transcript
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line.length > 0)
+  notify('agent-complete', { summary }, notificationPrefs)
 
   return transcript || '_(no output)_'
 }
