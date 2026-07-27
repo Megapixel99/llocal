@@ -32,7 +32,7 @@ export const ModeSelector = (): React.ReactElement => {
         <Dropdown
           onChange={handleSelection}
           defaultValue={theme}
-          className="w-96"
+          className="w-full max-w-[24rem]"
         >
           <DropDownSelector key={3} value={'system'}>
             {t("System")}

@@ -26,7 +26,7 @@ export const BackgroundSelector = (): React.ReactElement => {
         <Dropdown
           onChange={handleSelection}
           defaultValue={`${localStorage.getItem('settingsState')}`}
-          className="relative w-96"
+          className="relative w-full max-w-[24rem]"
         >
           {themes.map((val, index) => {
             return (
