@@ -6,6 +6,7 @@ import React, {
 } from 'react'
 import { twMerge } from 'tailwind-merge'
 import { PiChartBarBold, PiPaperPlaneRightFill, PiStopCircleBold } from 'react-icons/pi'
+import { LuNetwork, LuTerminal } from 'react-icons/lu'
 import { SubmitHandler, useForm } from 'react-hook-form'
 import { usePrompt } from '@renderer/hooks/usePrompt'
 import { TextArea } from '@renderer/ui/TextArea'
@@ -20,8 +21,8 @@ import { Modal } from '@renderer/ui/Modal'
 import { GitPanel } from './GitPanel'
 import { TerminalPanel } from './TerminalPanel'
 import { WorkspaceFolder } from './WorkspaceFolder'
-import { LuTerminal } from 'react-icons/lu'
 import { AgentModeSelector } from './AgentModeSelector'
+import { SwarmPanel } from './SwarmPanel'
 import { EffortSelector } from './EffortSelector'
 import { AgentApproval } from './AgentApproval'
 import { AutoComplete } from './AutoComplete'
@@ -58,6 +59,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const [commandList, setCommandList] = useAtom(commandListAtom)
   const [commandMatches, setCommandMatches] = useState<Command[]>([])
   const [showTerminal, setShowTerminal] = useState(false)
+  const [showSwarm, setShowSwarm] = useState(false)
   const fileDrop = useAtomValue(fileDropAtom)
   const agentMode = useAtomValue(agentModeAtom)
 
@@ -183,9 +185,23 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
         ? <CommandPalette className='absolute -bottom-3 transform -translate-y-1/2' commands={commandMatches} onSelectCommand={handleSelectCommand} />
         : (isAutoComplete && autoCompleteList.length > 0) && <AutoComplete className='absolute -bottom-3 transform -translate-y-1/2' list={autoCompleteList} reset={reset} />}
       <AgentApproval />
+      {activeTab === 'agent' && showSwarm && <SwarmPanel className='mb-2' />}
       <div className='flex items-center justify-between gap-3 mb-1 px-2 flex-wrap'>
         <div className='flex items-center gap-3 flex-wrap'>
           {activeTab === 'agent' && <AgentModeSelector />}
+          {activeTab === 'agent' && (
+            <button
+              type='button'
+              onClick={() => setShowSwarm((v) => !v)}
+              className={twMerge(
+                'flex items-center gap-1 text-xs transition-opacity',
+                showSwarm ? 'opacity-100 text-blue-400' : 'opacity-60 hover:opacity-100'
+              )}
+              title={t('Run multiple subtasks in parallel')}
+            >
+              <LuNetwork /> {t('Swarm')}
+            </button>
+          )}
           {activeTab === 'chat' && <EffortSelector />}
           <WorkspaceFolder />
           <GitPanel />
