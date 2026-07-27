@@ -74,6 +74,11 @@ LLocal is an Electron application with React and TypeScript.
 
 - [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 
+### Prerequisites
+
+- **[Ollama](https://ollama.com)** installed and running. The desktop app can install/serve it for you, but you can also run it yourself: `ollama serve`. Pull at least one model, e.g. `ollama pull llama3.2`.
+- **Node.js 18+** and npm.
+
 ### Installation
 
 #### Install dependencies
@@ -81,6 +86,8 @@ LLocal is an Electron application with React and TypeScript.
 ```bash
 npm install
 ```
+
+> The desktop app talks to Ollama directly — no companion server needed. The companion server is only required for the **mobile/web** build (see below).
 
 #### Development
 
@@ -103,6 +110,51 @@ npm run build:mac:intel
 # For Linux (Supported now!)
 npm run build:linux
 ```
+
+## Companion server (for the mobile / web app)
+
+A phone has no local filesystem or Ollama, so the mobile/web build talks to a small **companion server** that you run on the same machine as Ollama. It proxies Ollama and adds the features a browser can't do itself: RAG/file upload, web search, TTS, Git, and slash commands. **Desktop users can skip this entirely.**
+
+```bash
+cd server
+npm install
+
+# A shared secret the app authenticates with — use any hard-to-guess string.
+# macOS/Linux:
+LLOCAL_SERVER_TOKEN="$(openssl rand -hex 9)" npm start
+# ...it prints the port it's listening on (default 8787). Note your token.
+```
+
+- Listens on **port `8787`** (override with `PORT`) and binds to all interfaces, so other devices on your network can reach it.
+- Ollama is reached at `http://127.0.0.1:11434` by default (override with `OLLAMA_URL`), and re-exposed to the app under `/ollama`.
+- Host command execution is **disabled** by default. Only enable it if you understand the risk: `LLOCAL_ENABLE_EXEC=1` (optionally restrict with `LLOCAL_EXEC_ALLOWLIST`).
+- A GitHub token for the repo browser / PRs is optional: `GITHUB_TOKEN=...`.
+
+### Point the app at it
+
+In the app: **Settings → Server & Repository**, then:
+
+| Field | Value |
+| --- | --- |
+| **Server URL** | `http://<host-lan-ip>:8787` |
+| **Ollama base URL** | `http://<host-lan-ip>:8787/ollama` |
+| **Server token** | the `LLOCAL_SERVER_TOKEN` you set |
+
+Find `<host-lan-ip>` with `ipconfig getifaddr en0` (macOS) or `hostname -I` (Linux) — e.g. `192.168.1.22`. Use **Test server** to confirm.
+
+> **Same network vs. remote:** the phone and the host must be able to reach each other. On the same Wi‑Fi, use the host's **LAN IP** (`192.168.x.x`). To reach it from cellular/another network you'd have to port‑forward `8787` on your router to the host and use your **public IP** — this exposes the server to the internet, so use a strong token (and prefer HTTPS via a reverse proxy). The iOS build allows plain‑`http` to any host; without a companion server the app can't reach a `localhost` address (that's the phone itself).
+
+## Mobile app (iOS)
+
+The mobile app is the same UI wrapped with [Capacitor](https://capacitorjs.com). Build the web bundle and open the native project:
+
+```bash
+npm run cap:ios   # build:web + copy into ios/ + open Xcode
+```
+
+Run it on a simulator/device from Xcode, or build an **unsigned `.ipa`** and sideload it with **AltStore/SideStore** (no paid Apple account needed). Step‑by‑step instructions — including the exact `xcodebuild` command and SideStore setup — are in **[MOBILE.md](MOBILE.md)**.
+
+Once installed, configure the companion server as described above.
 
 ## How to contribute?
 
