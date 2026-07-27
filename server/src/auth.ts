@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { timingSafeEqual } from 'crypto'
-import { config } from './config.ts'
+import { getCurrentToken } from './token-store.ts'
 
 function safeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a)
@@ -13,7 +13,7 @@ function safeEqual(a: string, b: string): boolean {
 export function requireToken(req: Request, res: Response, next: NextFunction): void {
   const header = req.header('authorization') ?? ''
   const token = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : ''
-  if (!token || !safeEqual(token, config.token)) {
+  if (!token || !safeEqual(token, getCurrentToken())) {
     res.status(401).json({ error: 'Unauthorized' })
     return
   }

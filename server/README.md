@@ -62,8 +62,37 @@ All except `/health` require `Authorization: Bearer <token>`.
 - `POST /websearch` `{ query, links? }`
 - `POST /tts` `{ text }` → `audio/wav`
 - `POST /git/clone` `{ owner, repo, branch?, token? }` · `GET /git/tree` · `GET /git/file` · `PUT /git/file` · `POST /git/commit|push|pull` · `POST /git/pr`
-- `POST /exec` `{ command, owner?, repo? }` *(gated)*
+- `POST /exec` `{ command, owner?, repo? }` *(gated)* — response includes a `warning` reminder that the command ran on the host.
+- `GET  /pairing` → current pairing payload + reachable LAN URLs
+- `POST /pairing/rotate` → mint a new bearer token, persist it, return the fresh payload *(invalidates the old token immediately)*
 - `ANY  /ollama/*` → proxied to `OLLAMA_URL`
+
+### Pairing
+
+To point the mobile/web app at this server without hand-typing the token, the
+app calls `GET /pairing`. The server returns a compact, URL-safe **pairing
+payload** — a base64url-encoded `{ serverUrl, token, version }` — plus every
+LAN URL the host is reachable on:
+
+```jsonc
+{
+  "payload": "eyJ1IjoiaHR0cDovLzE5Mi4xNjguMS4xMDo4Nzg3IiwidCI6Ii4uLiIsInYiOiIxIn0",
+  "serverUrl": "http://192.168.1.10:8787",
+  "candidateUrls": ["http://192.168.1.10:8787", "http://10.0.0.5:8787"],
+  "hosts": ["192.168.1.10", "10.0.0.5"],
+  "port": 8787,
+  "version": "1",
+  "execEnabled": false
+}
+```
+
+Copy the `payload` (Settings → **Pair a device**) and paste it into LLocal on
+the phone (Settings → **Paste a pairing code**) to configure the URL + token in
+one step. `POST /pairing/rotate` mints a fresh strong token; the rotated token
+is persisted to `<LLOCAL_DATA_DIR>/server-token` (mode 0600) and **takes
+precedence over `LLOCAL_SERVER_TOKEN`** on restart — the old token stops working
+right away. The encode/decode logic is the shared, unit-tested core in
+`src/shared/pairing.ts`.
 
 ## ⚠️ Security
 
@@ -71,7 +100,8 @@ This server can read/write a repo, talk to Ollama, and — if you enable it — 
 arbitrary commands on the host**. Treat the token like a password.
 
 - **Always set a long, random `LLOCAL_SERVER_TOKEN`.** The server refuses to start without one.
-- Prefer running it on a trusted LAN or behind a VPN/Tailscale, not the open internet. If you must expose it, put it behind HTTPS (a reverse proxy) and a firewall.
+- Prefer running it on a trusted LAN or behind a VPN/Tailscale, not the open internet. If you must expose it, put it behind HTTPS (a reverse proxy) and a firewall. For remote access, **Tailscale** ([tailscale.com/download](https://tailscale.com/download)) or a **Cloudflare Tunnel** with Cloudflare Access ([docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)) keep the server off the public internet while still reachable from your phone. The app's Settings → **Remote access** section walks through both.
+- Rotate the token from the app (Settings → Pair a device → **Rotate token**) if you ever suspect it leaked; the old token is invalidated immediately.
 - `/exec` is **disabled by default**. Enable it only if you understand that anyone
   with the token can run commands as the server's user. Use `LLOCAL_EXEC_ALLOWLIST`
   to restrict which commands are permitted, and run the server as a low-privilege user.

@@ -17,6 +17,7 @@ import { ttsRouter } from './tts.ts'
 import { gitRouter } from './git.ts'
 import { execRouter } from './exec.ts'
 import { commandsRouter } from './commands.ts'
+import { pairingRouter } from './pairing.ts'
 import { ollamaProxyRouter } from './ollama-proxy.ts'
 
 const app = express()
@@ -47,6 +48,7 @@ app.use('/tts', ttsRouter)
 app.use('/git', gitRouter)
 app.use('/exec', execRouter)
 app.use('/commands', commandsRouter)
+app.use('/pairing', pairingRouter)
 
 app.listen(config.port, () => {
   console.log(`[llocal-server] listening on :${config.port}`)

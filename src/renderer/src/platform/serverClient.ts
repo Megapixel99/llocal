@@ -43,6 +43,40 @@ export async function pingServer(baseUrl: string, token: string): Promise<Health
   return (await res.json()) as HealthResponse
 }
 
+export interface PairingResponse {
+  payload: string
+  serverUrl: string
+  candidateUrls: string[]
+  hosts: string[]
+  port: number
+  version: string
+  execEnabled: boolean
+  execWarning?: string
+}
+
+/**
+ * Fetch (or rotate) the companion server's pairing payload. Takes an explicit
+ * URL/token so it works with values just typed into the settings form, before
+ * they're saved. `rotate` mints a brand-new token server-side — the OLD token
+ * (including the one used for this very call) stops working afterwards, so the
+ * caller must persist the returned payload's token.
+ */
+export async function fetchPairing(
+  baseUrl: string,
+  token: string,
+  rotate = false
+): Promise<PairingResponse> {
+  const url = `${baseUrl.replace(/\/$/, '')}/pairing${rotate ? '/rotate' : ''}`
+  const res = await fetch(url, {
+    method: rotate ? 'POST' : 'GET',
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  })
+  const text = await res.text()
+  const data = text ? JSON.parse(text) : {}
+  if (!res.ok) throw new Error(data.error || `Server responded ${res.status}`)
+  return data as PairingResponse
+}
+
 /** Reachability check for an Ollama server (used by the settings "Test" button). */
 export async function pingOllama(baseUrl: string): Promise<string[]> {
   const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tags`)
@@ -100,6 +134,8 @@ export interface ExecResult {
   stdout: string
   stderr: string
   code: number
+  /** Present when /exec is enabled; a reminder that the command ran on the host. */
+  warning?: string
 }
 export function execCommand(command: string): Promise<ExecResult> {
   const g = getGitConfig()
