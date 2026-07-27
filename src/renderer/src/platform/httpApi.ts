@@ -8,6 +8,7 @@
  */
 import { getServerConfig } from './config'
 import { webChangeLanguage, webGetLanguages, webTranslate } from './i18n-web'
+import { bundledCommands } from './bundledCommands'
 
 interface WebSearchType {
   prompt: string
@@ -72,6 +73,13 @@ export interface LlocalApi {
   setScheduleAgentMode: (mode: string) => Promise<void>
   onScheduleFire: (cb: (task: unknown) => void) => () => void
   onScheduleNotice: (cb: (notice: unknown) => void) => () => void
+  // The Scheduled Tasks settings tab calls these on mount / on save; without them the tab throws
+  // and the ErrorBoundary blanks the whole app. Scheduling needs a background runner the phone
+  // doesn't have, so they degrade to an in-memory no-op (nothing is persisted or ever fires).
+  listSchedules: () => Promise<unknown[]>
+  saveSchedule: (task: unknown) => Promise<unknown[]>
+  deleteSchedule: (id: string) => Promise<unknown[]>
+  runScheduleNow: (id: string) => Promise<boolean>
   notify: (event: string, payload: unknown, prefs: unknown) => Promise<boolean>
   notifySetPrefs: (prefs: unknown) => Promise<void>
   // The interactive terminal spawns a local child process — desktop-only. Stubbed on mobile so the
@@ -175,10 +183,12 @@ export function createHttpApi(): LlocalApi {
     // older and lacks the endpoint, degrade to "no commands" rather than error.
     listCommands: async () => {
       try {
-        return await serverJson<CommandType[]>('/commands/list')
+        const fromServer = await serverJson<CommandType[]>('/commands/list')
+        if (fromServer.length > 0) return fromServer
       } catch {
-        return []
+        /* server older/absent — fall back to the bundled examples below */
       }
+      return bundledCommands() as unknown as CommandType[]
     },
 
     deleteVectorDb: async (indexPath) => {
@@ -224,6 +234,12 @@ export function createHttpApi(): LlocalApi {
     setScheduleAgentMode: async () => {},
     onScheduleFire: () => () => {},
     onScheduleNotice: () => () => {},
+    // The Scheduled Tasks tab reads on mount and writes on save; with no scheduler on the phone these
+    // just report an empty list / echo nothing so the tab renders and doesn't crash the app.
+    listSchedules: async () => [],
+    saveSchedule: async () => [],
+    deleteSchedule: async () => [],
+    runScheduleNow: async () => false,
     notify: async () => false,
     notifySetPrefs: async () => {},
 
