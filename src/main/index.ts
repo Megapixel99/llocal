@@ -10,8 +10,10 @@ import { exec } from 'child_process'
 import process from 'node:process'
 import { webSearch, webSearchType } from './websearch'
 import { puppeteerSearch } from './puppeteer'
-import { deleteVectorDb, getFileName, getSelectedFiles, getVectorDbList, saveVectorDb, similaritySearch } from './utils/rag-utils'
-import { generateDocs } from './utils/docs-generator'
+import { deleteVectorDb, getFileName, getSelectedFiles, getSelectedFolder, getVectorDbList, saveVectorDb, similaritySearch } from './utils/rag-utils'
+import { generateDocs, SUPPORTED_EXTENSIONS } from './utils/docs-generator'
+import { createPullRequest, createWorktree, getGitCapabilities, getGitInfo, listWorktrees } from './utils/git-utils'
+import { AGENT_TOOLS, MUTATING_TOOLS, runAgentTool } from './utils/agent-tools'
 import path from 'path'
 import pie from "puppeteer-in-electron"
 import puppeteer from "puppeteer-core";
@@ -262,6 +264,69 @@ app.whenReady().then(() => {
     await saveVectorDb(docs, dir)
     return { path: dir, fileName: fileName };
   })
+
+  // Add every supported document in a chosen folder to the knowledge base. Each file becomes its own
+  // vector-db index (identical to addKnowledge), so all the downstream RAG code works unchanged.
+  // Also returns the folder path so the renderer can offer git features on it (when applicable).
+  ipcMain.handle('addKnowledgeFolder', async (): Promise<{ folder: string; added: addKnowledgeType[] }> => {
+    const { filePaths } = await getSelectedFolder()
+    const folder = filePaths[0]
+    const entries = fs
+      .readdirSync(folder, { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .filter((entry) =>
+        (SUPPORTED_EXTENSIONS as readonly string[]).includes(
+          path.extname(entry.name).slice(1).toLowerCase()
+        )
+      )
+
+    if (entries.length === 0) throw new Error(i18n.t('No supported documents found in that folder'))
+
+    const added: addKnowledgeType[] = []
+    for (const entry of entries) {
+      const filePath = path.join(folder, entry.name)
+      const fileName = getFileName(filePath)
+      const docs = await generateDocs(filePath)
+      if (docs.length === 0) continue
+      const dir = path.join(app.getPath('documents'), 'LLocal', 'Knowledge Base', fileName)
+      await saveVectorDb(docs, dir)
+      added.push({ path: dir, fileName })
+    }
+
+    if (added.length === 0) throw new Error(i18n.t('No supported documents found in that folder'))
+    return { folder, added }
+  })
+
+  // Plain folder picker for choosing a working folder (no indexing). Returns '' if cancelled.
+  ipcMain.handle('selectFolder', async (): Promise<string> => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      message: i18n.t('Choose a folder to work in')
+    })
+    return canceled ? '' : filePaths[0] ?? ''
+  })
+
+  // ---- Git integration (operates on the working folder when it's a repo) ----
+  ipcMain.handle('getGitCapabilities', async () => getGitCapabilities())
+  ipcMain.handle('getGitInfo', async (_event, folder: string) => getGitInfo(folder))
+  ipcMain.handle('listWorktrees', async (_event, folder: string) => listWorktrees(folder))
+  ipcMain.handle('createWorktree', async (_event, folder: string, name: string) =>
+    createWorktree(folder, name)
+  )
+  ipcMain.handle('createPullRequest', async (_event, folder: string, title: string, body: string) =>
+    createPullRequest(folder, title, body)
+  )
+
+  // ---- Coding-agent tools (executed in the working folder; renderer gates mutating ones) ----
+  ipcMain.handle('getAgentTools', async () => ({
+    tools: AGENT_TOOLS,
+    mutating: Array.from(MUTATING_TOOLS)
+  }))
+  ipcMain.handle(
+    'runAgentTool',
+    async (_event, root: string, name: string, args: Record<string, unknown>) =>
+      runAgentTool(root, name, args)
+  )
 
   ipcMain.handle('similaritySearch', async (_event, selectedKnowledge: addKnowledgeType[], prompt: string): Promise<ragReturn> => {
     const response = await similaritySearch(selectedKnowledge, prompt)

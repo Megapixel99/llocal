@@ -3,6 +3,7 @@ import { InputForm } from './components/Chat/InputForm'
 import { Messages } from './components/Chat/Messages'
 import { ChatList } from './components/Sidebar/ChatList'
 import { NewChat } from './components/Sidebar/NewChat'
+import { SidebarTabs } from './components/Sidebar/SidebarTabs'
 import { Separator } from './ui/Separator'
 import { CommandCentre } from './components/Sidebar/CommandCentre'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai/react'
@@ -55,6 +56,7 @@ function App(): JSX.Element {
           <GetVersion className='pt-20 lg:p-0' />
         </Settings>
         <Sidebar className="bg-foreground bg-opacity-20 dark:bg-background dark:bg-opacity-20 backdrop-blur-lg flex flex-col gap-5">
+          <SidebarTabs />
           <NewChat />
           <Separator />
           <h1 className="">Your chats</h1>

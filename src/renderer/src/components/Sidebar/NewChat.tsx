@@ -3,7 +3,7 @@ import Logo from '../../assets/logo.png'
 import { ComponentProps } from 'react'
 import { twMerge } from 'tailwind-merge'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { chatAtom, selectedChatIndexAtom, streamingAtom, suggestionsAtom } from '@renderer/store/mocks'
+import { chatAtom, contextUsageAtom, selectedChatIndexAtom, streamingAtom, suggestionsAtom } from '@renderer/store/mocks'
 import { t } from '@renderer/utils/utils'
 
 export const NewChat = ({ className, ...props }: ComponentProps<'div'>): React.ReactElement => {
@@ -11,11 +11,13 @@ export const NewChat = ({ className, ...props }: ComponentProps<'div'>): React.R
   const setSelectedChatIndex = useSetAtom(selectedChatIndexAtom)
   const stream = useAtomValue(streamingAtom)
   const setSuggestions = useSetAtom(suggestionsAtom)
+  const setContextUsage = useSetAtom(contextUsageAtom)
   function handleClick(): void {
     if (!stream) {
       setSelectedChatIndex('')
       setChat([])
       setSuggestions(pre => ({ ...pre, prompts: [] }))
+      setContextUsage(pre => ({ ...pre, used: 0 })) // reset the context meter for the fresh chat
     }
   }
 

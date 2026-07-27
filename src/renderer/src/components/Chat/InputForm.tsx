@@ -13,9 +13,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@renderer/ui/Button'
 import { MoreButton } from './MoreButton'
 import { ContextCard } from './ContextCard'
+import { ContextInfo } from './ContextInfo'
+import { GitPanel } from './GitPanel'
+import { WorkspaceFolder } from './WorkspaceFolder'
+import { AgentModeSelector } from './AgentModeSelector'
+import { AgentApproval } from './AgentApproval'
 import { AutoComplete } from './AutoComplete'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { fileContextAtom, fileDropAtom, knowledgeBaseAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
+import { activeTabAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
 import ToolTip from '@renderer/ui/ToolTip'
 import { t } from '@renderer/utils/utils'
 
@@ -38,6 +43,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const setStopGenerating = useSetAtom(stopGeneratingAtom)
   const setSuggestions = useSetAtom(suggestionsAtom)
   const context = useAtomValue(fileContextAtom)
+  const activeTab = useAtomValue(activeTabAtom)
   const [isAutoComplete, setIsAutoComplete] = useState(false)
   const fileDrop = useAtomValue(fileDropAtom)
   function handleClick(): void {
@@ -81,6 +87,15 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   return (
     <div className='relative w-full md:max-w-[48rem] flex flex-col'>
       {(isAutoComplete && autoCompleteList.length > 0) && <AutoComplete className='absolute -bottom-3 transform -translate-y-1/2' list={autoCompleteList} reset={reset} />}
+      <AgentApproval />
+      <div className='flex items-center justify-between gap-3 mb-1 px-2 flex-wrap'>
+        <div className='flex items-center gap-3 flex-wrap'>
+          {activeTab === 'agent' && <AgentModeSelector />}
+          <WorkspaceFolder />
+          <GitPanel />
+        </div>
+        <ContextInfo />
+      </div>
       <ToolTip className='self-end w-fit h-full m-1 mr-5' tooltip={context.length > 1 ? `${context.length} ${t("files")}` : `${context.length} ${t("file")}`}>
         <ContextCard className='' />
       </ToolTip>

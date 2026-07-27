@@ -8,6 +8,7 @@ export interface getDbReturn {
   date: string;
   title: string;
   chat: Message[];
+  unread?: boolean;
 }
 
 type useDbReturn = {
@@ -16,6 +17,7 @@ type useDbReturn = {
   getChat: (date?: string) => Promise<Message[]>
   updateDate: (date: string) => Promise<string>
   updateTitle: (date: string, title: string) => Promise<void>
+  markRead: (date: string) => Promise<void>
   deleteChat: (date: string) => Promise<void>
 }
 
@@ -30,13 +32,14 @@ export function useDb(): useDbReturn {
   const addChat = async (messages: Message[], force = false, title = ""): Promise<string> => {
     try {
       if (force) throw new Error("Forcefully add a new chat")
+      // .update (instead of .set) merges, so it preserves the chat's existing title/date instead of
+      // wiping the title back to "" on every new message. Throws if the doc doesn't exist -> new chat.
       const response = await db
         .collection('chat')
         .doc({ date: selectedChatIndex })
-        .set({
-          date: selectedChatIndex,
-          title: title,
-          chat: messages
+        .update({
+          chat: messages,
+          unread: true
         })
         .then((chat) => console.log('AddChat: ', chat))
       return response
@@ -48,7 +51,8 @@ export function useDb(): useDbReturn {
         .add({
           date: isoDateString,
           title: title,
-          chat: messages
+          chat: messages,
+          unread: true
         })
         .then((chat) => console.log('AddChat: ', chat))
       setSelectedChatIndex(isoDateString)
@@ -93,5 +97,15 @@ export function useDb(): useDbReturn {
     }
   }
 
-  return { addChat, getMessageList, getChat, updateDate, updateTitle, deleteChat }
+  // Clears the unread flag when the user opens a chat; bumps titleUpdate so ChatList re-fetches.
+  const markRead = async (date: string): Promise<void> => {
+    try {
+      await db.collection('chat').doc({ date: date }).update({ unread: false })
+      setTitleUpdate(new Date().getTime())
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  return { addChat, getMessageList, getChat, updateDate, updateTitle, markRead, deleteChat }
 }
