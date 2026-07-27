@@ -1,6 +1,17 @@
 import { getOllama } from '@renderer/utils/ollama'
 import { parseHarmony } from '@renderer/utils/utils'
 import { isMcpToolName, type McpServer } from '../../../shared/mcp'
+import { runReasoning, runDeepResearch } from '@renderer/utils/agents'
+import type { Effort } from '@renderer/store/mocks'
+import {
+  AGENT_RESEARCH_TOOLS,
+  DEEP_RESEARCH_TOOL_NAME,
+  REASON_TOOL_NAME,
+  extractReasonProblem,
+  extractResearchQuery,
+  formatResearchResult,
+  isResearchToolName
+} from '@renderer/utils/agent-research-tools'
 import type {
   NotificationEvent,
   NotificationPayload,
@@ -69,7 +80,7 @@ export function resolveAgentApproval(
 function toolCallBlock(name: string, args: Record<string, unknown>): string {
   if (name === 'run_command') return `\n\n**\`$ ${String(args.command ?? '')}\`**\n`
   if (name === 'write_file') return `\n\n**✎ write** \`${String(args.path ?? '')}\`\n`
-  const detail = args.path ?? args.query ?? ''
+  const detail = args.path ?? args.query ?? args.problem ?? ''
   return `\n\n**🔧 ${name}** \`${String(detail)}\`\n`
 }
 
@@ -98,6 +109,8 @@ export async function runAgentLoop(opts: {
   /** Enabled MCP servers whose tools were merged into `tools`; MCP calls are routed to them. */
   mcpServers?: McpServer[]
   notificationPrefs?: NotificationPrefs
+  /** DeepResearch breadth for the `deep_research` tool (defaults to 'medium'). */
+  effort?: Effort
 }): Promise<string> {
   const {
     model,
@@ -111,15 +124,21 @@ export async function runAgentLoop(opts: {
     notificationPrefs
   } = opts
   const mcpServers = opts.mcpServers ?? []
+  const effort: Effort = opts.effort ?? 'medium'
+
+  // Offer the DeepResearch / Reasoning capabilities as tools too. They are
+  // read-only (no file writes, no commands), so they stay available even in plan
+  // mode and never require approval.
+  const baseTools = [...opts.tools, ...(AGENT_RESEARCH_TOOLS as unknown as object[])]
 
   // In plan mode the model must not modify anything, so we don't even offer the mutating tools.
   const tools =
     mode === 'plan'
-      ? opts.tools.filter(
+      ? baseTools.filter(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (tooldef) => !mutating.has((tooldef as any).function?.name)
         )
-      : opts.tools
+      : baseTools
 
   const planNote =
     mode === 'plan'
@@ -130,7 +149,9 @@ export async function runAgentLoop(opts: {
     role: 'system',
     content: `You are a coding agent working inside the folder: ${root}
 Use the provided tools to inspect${mode === 'plan' ? '' : ', modify,'} the project${mode === 'plan' ? '' : ' and run commands'}. Paths are relative to that folder.
-Work step by step: read/list/search to understand before ${mode === 'plan' ? 'planning' : 'changing anything'}. When the task is complete, stop calling tools and give a short summary.${planNote}`
+Work step by step: read/list/search to understand before ${mode === 'plan' ? 'planning' : 'changing anything'}.
+For a hard sub-problem, call \`${REASON_TOOL_NAME}\` to think it through step by step before acting. For anything outside this codebase — library or API docs, package versions, an unfamiliar error, current facts — call \`${DEEP_RESEARCH_TOOL_NAME}\` to look it up on the web (it returns a cited summary).
+When the task is complete, stop calling tools and give a short summary.${planNote}`
   }
 
   const working: AnyMessage[] = [system, ...opts.messages]
@@ -172,6 +193,32 @@ Work step by step: read/list/search to understand before ${mode === 'plan' ? 'pl
 
       const run = async (): Promise<string> => {
         try {
+          // Reasoning / DeepResearch run here in the renderer (they drive Ollama and web
+          // search directly), streaming their progress under the tool block.
+          if (isResearchToolName(name)) {
+            const live = (partial: string): void => onProgress(transcript + '\n' + partial)
+            if (name === REASON_TOOL_NAME) {
+              const problem = extractReasonProblem(args)
+              if (!problem) return 'Error: `reason` needs a non-empty "problem".'
+              return await runReasoning({
+                model,
+                messages: [{ role: 'user', content: problem }],
+                onProgress: live,
+                shouldStop
+              })
+            }
+            // deep_research
+            const query = extractResearchQuery(args)
+            if (!query) return 'Error: `deep_research` needs a non-empty "query".'
+            const { content, sources } = await runDeepResearch({
+              model,
+              prompt: query,
+              effort,
+              onProgress: live,
+              shouldStop
+            })
+            return formatResearchResult(content, sources)
+          }
           // MCP tools (mcp__<server>__<tool>) run on their configured server; the rest are the
           // builtin file/command tools that run in the working folder.
           if (isMcpToolName(name)) return await window.api.mcpCallTool(mcpServers, name, args)
