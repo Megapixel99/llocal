@@ -242,7 +242,8 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
             </button>
           )}
           {activeTab === 'chat' && <EffortSelector />}
-          {activeTab === 'chat' && <VerbositySelector />}
+          {/* Reasoning display applies to any assistant output, so it's available on both tabs. */}
+          <VerbositySelector />
           <WorkspaceFolder />
           <GitPanel />
           {activeTab === 'agent' && (
