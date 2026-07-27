@@ -77,7 +77,8 @@ const api = {
     const listener = (_e: IpcRendererEvent, notice: ScheduleNotice): void => cb(notice)
     ipcRenderer.on('schedule:notify', listener)
     return () => ipcRenderer.removeListener('schedule:notify', listener)
-  }
+  },
+  docgenCreate: (spec: unknown): Promise<string> => ipcRenderer.invoke('docgenCreate', spec)
 }
 
 
