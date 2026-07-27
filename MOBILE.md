@@ -113,6 +113,48 @@ For a personal tool that talks to your own server, pick whichever fits:
 **Recommendation:** start with option 1 to try it, move to option 2 or 3 if the
 weekly re-sign gets annoying.
 
+### Sideloading with SideStore (step by step)
+
+SideStore re-signs the app with your **own free Apple ID** on-device and refreshes it
+in the background, so you don't need a paid account, a signing cert, or to re-run
+Xcode every week. You just need to hand it an `.ipa`.
+
+**1. Build an unsigned `.ipa`** (SideStore signs it at install time, so signing is
+disabled here — no team/cert required):
+
+```bash
+npm run cap:sync   # build:web + copy the web bundle into the iOS project
+
+xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
+  -sdk iphoneos -destination 'generic/platform=iOS' \
+  -derivedDataPath ios/App/build-ipa CODE_SIGNING_ALLOWED=NO build
+
+# package App.app into LLocal.ipa (repo root)
+APP=ios/App/build-ipa/Build/Products/Release-iphoneos/App.app
+rm -rf /tmp/llocal-ipa && mkdir -p /tmp/llocal-ipa/Payload
+cp -R "$APP" /tmp/llocal-ipa/Payload/
+(cd /tmp/llocal-ipa && zip -qr "$OLDPWD/LLocal.ipa" Payload)
+```
+
+**2. Set up SideStore** (one-time) by following the guide at
+[sidestore.io](https://sidestore.io) — install the SideStore app on your iPhone and
+pair it.
+
+**3. Get `LLocal.ipa` onto the phone** — AirDrop it or save it into the Files app.
+
+**4. Install it:** open SideStore → **My Apps → +** → pick `LLocal.ipa`. It signs with
+your Apple ID and installs.
+
+**5. Trust the profile:** first launch → **Settings → General → VPN & Device
+Management** → trust your developer app.
+
+Notes:
+
+- Free Apple ID = a 7-day cert, but SideStore **auto-refreshes in the background**, so
+  it won't expire on you (max **3** sideloaded apps per Apple ID).
+- iOS can't run Ollama locally — point the app at your desktop's **companion server**
+  under Server settings (see [Configure it](#configure-it) above).
+
 ## What is / isn't ported
 
 | Feature | Mobile status |

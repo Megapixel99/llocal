@@ -9,4 +9,7 @@ server/node_modules
 # Capacitor generated native project pods/build (keep the ios/ project itself)
 ios/App/Pods
 ios/App/build
+ios/App/build-*
 ios/DerivedData
+# Packaged app bundles (sideload artifacts)
+*.ipa
