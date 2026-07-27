@@ -17,6 +17,8 @@ import { AGENT_TOOLS, MUTATING_TOOLS, runAgentTool } from './utils/agent-tools'
 import { killTerminal, startTerminal, writeTerminal, StartTerminalOptions } from './utils/terminal'
 import { listCommands } from './utils/commands'
 import { Command } from '../shared/commands'
+import { callMcpTool, listMcpTools } from './utils/mcp-client'
+import { McpServer } from '../shared/mcp'
 import path from 'path'
 import pie from "puppeteer-in-electron"
 import puppeteer from "puppeteer-core";
@@ -345,6 +347,17 @@ app.whenReady().then(() => {
   )
   ipcMain.handle('terminal:kill', async (_event, { sessionId }: { sessionId: string }) =>
     killTerminal(sessionId)
+  )
+
+  // ---- MCP (Model Context Protocol): connect to external servers and expose their tools ----
+  // The renderer passes the configured servers (persisted with the rest of its config); we connect,
+  // run the initialize handshake, and list/call tools. MCP tool calls are gated by the same
+  // AgentApproval flow as write_file / run_command in the renderer's agent loop.
+  ipcMain.handle('mcp:list-tools', async (_event, servers: McpServer[]) => listMcpTools(servers ?? []))
+  ipcMain.handle(
+    'mcp:call-tool',
+    async (_event, servers: McpServer[], name: string, args: Record<string, unknown>) =>
+      callMcpTool(servers ?? [], name, args)
   )
 
   // ---- Slash commands (Claude Code style; e.g. github.com/wshobson/commands) ----

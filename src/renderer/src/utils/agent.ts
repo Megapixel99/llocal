@@ -1,5 +1,6 @@
 import { getOllama } from '@renderer/utils/ollama'
 import { parseHarmony } from '@renderer/utils/utils'
+import { isMcpToolName, type McpServer } from '../../../shared/mcp'
 
 export type AgentMode = 'manual' | 'acceptEdits' | 'plan' | 'auto'
 
@@ -64,8 +65,11 @@ export async function runAgentLoop(opts: {
   shouldStop: () => boolean
   /** Optional: fired after each tool runs, for the analytics timeline. */
   onToolCall?: (call: { tool: string; durationMs: number }) => void
+  /** Enabled MCP servers whose tools were merged into `tools`; MCP calls are routed to them. */
+  mcpServers?: McpServer[]
 }): Promise<string> {
   const { model, root, mode, mutating, requestApproval, onProgress, shouldStop, onToolCall } = opts
+  const mcpServers = opts.mcpServers ?? []
 
   // In plan mode the model must not modify anything, so we don't even offer the mutating tools.
   const tools =
@@ -127,6 +131,9 @@ Work step by step: read/list/search to understand before ${mode === 'plan' ? 'pl
 
       const run = async (): Promise<string> => {
         try {
+          // MCP tools (mcp__<server>__<tool>) run on their configured server; the rest are the
+          // builtin file/command tools that run in the working folder.
+          if (isMcpToolName(name)) return await window.api.mcpCallTool(mcpServers, name, args)
           return await window.api.runAgentTool(root, name, args)
         } catch (error) {
           return `Error: ${String(error)}`

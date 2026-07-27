@@ -55,6 +55,8 @@ declare global {
       createPullRequest: (folder: string, title: string, body: string) => Promise<string>,
       getAgentTools: () => Promise<{ tools: object[]; mutating: string[] }>,
       runAgentTool: (root: string, name: string, args: object) => Promise<string>,
+      mcpListTools: (servers: object[]) => Promise<object[]>,
+      mcpCallTool: (servers: object[], name: string, args: object) => Promise<string>,
       similaritySearch: (selectedKnowledge: addKnowledgeType[], prompt: string) => Promise<ragReturn>,
       getVectorDbList: () => Promise<addKnowledgeType[]>,
       listCommands: () => Promise<commandType[]>,
