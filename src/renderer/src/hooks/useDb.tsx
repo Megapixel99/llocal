@@ -1,6 +1,6 @@
 import { db } from '@renderer/utils/db'
 import { Message, selectedChatIndexAtom, titleUpdateAtom } from '../store/mocks'
-import { useAtom, useSetAtom } from 'jotai'
+import { useSetAtom, useStore } from 'jotai'
 import { toast } from 'sonner';
 import { t } from '@renderer/utils/utils';
 
@@ -23,23 +23,28 @@ type useDbReturn = {
 
 
 export function useDb(): useDbReturn {
-  const [selectedChatIndex, setSelectedChatIndex] = useAtom(selectedChatIndexAtom)
+  const setSelectedChatIndex = useSetAtom(selectedChatIndexAtom)
   const setTitleUpdate = useSetAtom(titleUpdateAtom)
+  // Read the selected index LIVE from the store rather than a render-time snapshot: a single
+  // promptReq() run persists the chat twice (immediately on send, then again with the reply), and
+  // the first call sets the index — the second must see that fresh value or it creates a duplicate.
+  const store = useStore()
 
   /* Force is to throw an error, so we can force fully add a new chat.
    * God bless coding, it so much fun
    * */
   const addNewChat = async (messages: Message[], title: string): Promise<string> => {
     const isoDateString = new Date().toISOString()
-    const response = await db
+    await db
       .collection('chat')
       .add({ date: isoDateString, title, chat: messages, unread: true })
       .then((chat) => console.log('AddChat (new): ', chat))
     setSelectedChatIndex(isoDateString)
-    return response
+    return isoDateString
   }
 
   const addChat = async (messages: Message[], force = false, title = ""): Promise<string> => {
+    const selectedChatIndex = store.get(selectedChatIndexAtom)
     // New chat when there's no selected doc to continue (or when forced, e.g. branching).
     // NOTE: decide this explicitly rather than relying on .set/.update throwing — an empty
     // selectedChatIndex means "brand new chat", and .update() on a missing doc silently no-ops
@@ -49,12 +54,12 @@ export function useDb(): useDbReturn {
     }
     try {
       // Continuing an existing chat: merge so we keep its title/date, and flag it unread.
-      const response = await db
+      await db
         .collection('chat')
         .doc({ date: selectedChatIndex })
         .update({ chat: messages, unread: true })
         .then((chat) => console.log('AddChat (update): ', chat))
-      return response
+      return selectedChatIndex
     } catch (error) {
       // The selected doc vanished (e.g. deleted) — fall back to creating a fresh one.
       return addNewChat(messages, title)
@@ -62,7 +67,7 @@ export function useDb(): useDbReturn {
   }
 
   const getChat = async (date = ""): Promise<Message[]> => {
-    const response: getDbReturn = await db.collection('chat').doc({ date: date || selectedChatIndex }).get()
+    const response: getDbReturn = await db.collection('chat').doc({ date: date || store.get(selectedChatIndexAtom) }).get()
     return response.chat
   }
 

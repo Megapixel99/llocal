@@ -26,6 +26,7 @@ import { WorkspaceFolder } from './WorkspaceFolder'
 import { AgentModeSelector } from './AgentModeSelector'
 import { SwarmPanel } from './SwarmPanel'
 import { EffortSelector } from './EffortSelector'
+import { VerbositySelector } from './VerbositySelector'
 import { AgentApproval } from './AgentApproval'
 import { Mascot } from './Mascot'
 import { AutoComplete } from './AutoComplete'
@@ -241,6 +242,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
             </button>
           )}
           {activeTab === 'chat' && <EffortSelector />}
+          {activeTab === 'chat' && <VerbositySelector />}
           <WorkspaceFolder />
           <GitPanel />
           {activeTab === 'agent' && (

@@ -54,6 +54,11 @@ export const agentModeAtom = atomWithStorage<agentMode>('agentMode', 'manual')
 export const agentApprovalAtom = atom<{ tool: string; args: Record<string, unknown> } | null>(null) // pending mutating action awaiting user approval
 export type Effort = 'low' | 'medium' | 'high' // controls how many searches DeepResearch runs
 export const effortAtom = atomWithStorage<Effort>('researchEffort', 'medium')
+// How much of a model's reasoning to SHOW (display only — never changes what the model generates):
+// summary = hide it (answer only) · normal = collapsed behind "Thinking…" · thinking = kept expanded ·
+// verbose = reasoning + answer inline, nothing collapsed.
+export type Verbosity = 'summary' | 'normal' | 'thinking' | 'verbose'
+export const verbosityAtom = atomWithStorage<Verbosity>('reasoningVerbosity', 'normal')
 export const mascotEnabledAtom = atomWithStorage<boolean>('mascotEnabled', true) // the little composer mascot ("Lo"); opt-out in Preferences
 export type MascotPhase = 'reading' | 'responding'
 export const mascotPhaseAtom = atom<MascotPhase | null>(null) // what the model is doing while generating: reading (thinking/researching) vs responding (writing)
