@@ -16,6 +16,8 @@ import { saveDocument } from './utils/doc-builder'
 import { createPullRequest, createWorktree, getGitCapabilities, getGitInfo, listWorktrees } from './utils/git-utils'
 import { AGENT_TOOLS, MUTATING_TOOLS, runAgentTool } from './utils/agent-tools'
 import { killTerminal, startTerminal, writeTerminal, StartTerminalOptions } from './utils/terminal'
+import { setNotificationPrefs, showNotification } from './utils/notifier'
+import type { NotificationEvent, NotificationPayload, NotificationPrefs } from '../shared/notifications'
 import { listCommands } from './utils/commands'
 import { Command } from '../shared/commands'
 import { callMcpTool, listMcpTools } from './utils/mcp-client'
@@ -359,6 +361,22 @@ app.whenReady().then(() => {
     'mcp:call-tool',
     async (_event, servers: McpServer[], name: string, args: Record<string, unknown>) =>
       callMcpTool(servers ?? [], name, args)
+  )
+
+  // ---- Native OS notifications (policy lives in src/shared/notifications.ts) ----
+  // The renderer pushes the current prefs so main-side triggers (e.g. sensitive
+  // file access in agent-tools) can respect them.
+  ipcMain.handle('notify:setPrefs', async (_event, prefs: NotificationPrefs): Promise<void> => {
+    setNotificationPrefs(prefs)
+  })
+  ipcMain.handle(
+    'notify:show',
+    async (
+      _event,
+      event: NotificationEvent,
+      payload: NotificationPayload,
+      prefs?: NotificationPrefs
+    ): Promise<boolean> => showNotification(event, payload ?? {}, prefs)
   )
 
   // ---- Slash commands (Claude Code style; e.g. github.com/wshobson/commands) ----

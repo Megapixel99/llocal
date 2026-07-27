@@ -9,6 +9,7 @@ import {
   fileContextAtom,
   generatingAtom,
   imageAttatchmentAtom,
+  notificationPrefsAtom,
   prefModelAtom,
   sessionMetricsAtom,
   stopGeneratingAtom,
@@ -74,6 +75,7 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
   const workingFolder = useAtomValue(workingFolderAtom)
   const setApproval = useSetAtom(agentApprovalAtom)
   const effort = useAtomValue(effortAtom) // DeepResearch breadth: low | medium | high
+  const notificationPrefs = useAtomValue(notificationPrefsAtom) // native OS notification settings
   // To Debug
   // useEffect(()=>{console.log(stream);
   // },[stream])
@@ -127,6 +129,9 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
       // plain chat (bypasses web-search / RAG rewriting).
       if (activeTab === 'agent' && workingFolder) {
         try {
+          // Push current notification prefs so main-side triggers (sensitive-file
+          // access during tool calls) respect the user's settings.
+          window.api?.notifySetPrefs?.(notificationPrefs)
           const { tools, mutating } = await window.api.getAgentTools()
           // Merge in tools from enabled MCP servers. They're treated as mutating so every MCP call
           // goes through the AgentApproval gate, just like write_file / run_command.
@@ -154,7 +159,7 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
             tools: mergedTools,
             mutating: mutatingSet,
             mcpServers,
-            requestApproval: makeApprovalRequester(setApproval),
+            requestApproval: makeApprovalRequester(setApproval, notificationPrefs),
             onProgress: (t) => setStream(t),
             shouldStop: () => stopGeneratingRef.current,
             onToolCall: ({ tool, durationMs }) =>
@@ -169,7 +174,8 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
                   tool,
                   durationMs
                 }
-              ])
+              ]),
+            notificationPrefs
           })
           const ai = { role: 'assistant', content: transcript }
           addChat([...chat, initialUser, ai])

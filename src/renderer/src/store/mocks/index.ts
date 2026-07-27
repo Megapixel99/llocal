@@ -1,6 +1,7 @@
 import { listModels } from '@renderer/hooks/useOllama'
 import type { Command } from '@renderer/utils/commands'
 import type { MessageMetric } from '../../../../shared/analytics'
+import { DEFAULT_NOTIFICATION_PREFS, type NotificationPrefs } from '../../../../shared/notifications'
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 
@@ -63,6 +64,23 @@ export const fileDropAtom = atom<boolean>(false)
 export const titleUpdateAtom = atom<number>(0)
 export const contextUsageAtom = atom<{ used: number; total: number }>({ used: 0, total: 0 }) // tokens used vs the model's context window
 export const sessionMetricsAtom = atom<MessageMetric[]>([]) // per-message token/throughput/tool metrics for the current session (in-memory; drives the analytics panel)
+
+// Native OS notification prefs (global enable + per-event map); persisted in localStorage.
+// Stored value is merged over the defaults so newly added event types get a sane default.
+function loadNotificationPrefs(): NotificationPrefs {
+  try {
+    const raw = localStorage.getItem('notificationPrefs')
+    if (!raw) return DEFAULT_NOTIFICATION_PREFS
+    const parsed = JSON.parse(raw) as Partial<NotificationPrefs>
+    return {
+      enabled: parsed.enabled ?? DEFAULT_NOTIFICATION_PREFS.enabled,
+      events: { ...DEFAULT_NOTIFICATION_PREFS.events, ...(parsed.events ?? {}) }
+    }
+  } catch {
+    return DEFAULT_NOTIFICATION_PREFS
+  }
+}
+export const notificationPrefsAtom = atom<NotificationPrefs>(loadNotificationPrefs())
 
 // User Preferences
 const url = new URL('/src/assets/themes/galaxia.svg', import.meta.url).href

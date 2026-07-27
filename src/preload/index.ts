@@ -1,4 +1,9 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
+import type {
+  NotificationEvent,
+  NotificationPayload,
+  NotificationPrefs
+} from '../shared/notifications'
 // import { electronAPI } from '@electron-toolkit/preload'
 import type { AgentMode, Task } from '../shared/schedule'
 
@@ -78,7 +83,10 @@ const api = {
     ipcRenderer.on('schedule:notify', listener)
     return () => ipcRenderer.removeListener('schedule:notify', listener)
   },
-  docgenCreate: (spec: unknown): Promise<string> => ipcRenderer.invoke('docgenCreate', spec)
+  docgenCreate: (spec: unknown): Promise<string> => ipcRenderer.invoke('docgenCreate', spec),
+  // ---- Native OS notifications ----
+  notify: (event: NotificationEvent, payload: NotificationPayload, prefs: NotificationPrefs): Promise<boolean> => ipcRenderer.invoke('notify:show', event, payload, prefs),
+  notifySetPrefs: (prefs: NotificationPrefs): Promise<void> => ipcRenderer.invoke('notify:setPrefs', prefs)
 }
 
 

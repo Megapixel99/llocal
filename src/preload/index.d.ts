@@ -1,5 +1,10 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { AgentMode, Task } from '../shared/schedule'
+import type {
+  NotificationEvent,
+  NotificationPayload,
+  NotificationPrefs
+} from '../shared/notifications'
 
 interface webSearchType {
   prompt: string
@@ -78,7 +83,9 @@ declare global {
       setScheduleAgentMode: (mode: AgentMode) => Promise<void>,
       onScheduleFire: (cb: (task: Task) => void) => () => void,
       onScheduleNotice: (cb: (notice: ScheduleNotice) => void) => () => void,
-      docgenCreate: (spec: unknown) => Promise<string>
+      docgenCreate: (spec: unknown) => Promise<string>,
+      notify: (event: NotificationEvent, payload: NotificationPayload, prefs: NotificationPrefs) => Promise<boolean>,
+      notifySetPrefs: (prefs: NotificationPrefs) => Promise<void>
     }
   }
 }
