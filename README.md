@@ -44,7 +44,7 @@ A command file's name is the command name and sub-folders become `:`-separated n
 - Multiple PDF chat ✅
 - Ollama Model Catalogue (Information about all models)
 - Support for `<think />` code blocks ✅
-- Agents, the first two would be `DeepResearch` and `Reasoning`
+- Agents, the first two would be `DeepResearch` and `Reasoning` ✅ (auto-routed in Chat — the app decides when to reason or research; DeepResearch depth is set by an effort level)
 - Code live preview for web based code (Something like what Claude Provides) ✅
 - Text to Speech Models (only if we can get to be similar to a human like response) ✅
 - Community wallpapers

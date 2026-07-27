@@ -43,6 +43,18 @@ export function t(key: string, options = {}): string {
 }
 
 /**
+ * Extracts URLs from a string. Used to detect links in a prompt so web search can scrape them.
+ * (Shared by the plain-chat web-search path and the DeepResearch agent.)
+ * */
+export function findUrls(text: string): string[] {
+  const urlPattern = new RegExp(
+    // eslint-disable-next-line no-useless-escape
+    /(?:https?:\/\/|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}\/)(?:[^\s()<>]+|\((?:[^\s()<>]+|(?:\([^\s()<>]+\)))\))+(?:\((?:[^\s()<>]+|(?:\([^\s()<>]+\)))\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’])?/gi
+  )
+  return text.match(urlPattern) ?? []
+}
+
+/**
  * Removes any leftover "harmony" special tokens and should-never-be-shown markers.
  * Handles both the standard form (<|channel|>, <|message|>, <|end|>, <|start|>, <|return|>) and the
  * one-sided-pipe variants some GGUF fine-tunes emit in practice (observed: <|channel> and <channel|>).

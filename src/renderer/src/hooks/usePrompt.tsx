@@ -4,6 +4,7 @@ import {
   agentModeAtom,
   chatAtom,
   contextUsageAtom,
+  effortAtom,
   experimentalSearchAtom,
   fileContextAtom,
   generatingAtom,
@@ -20,8 +21,9 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useEffect, useRef, useState } from 'react'
 import { useDb } from './useDb'
 import { toast } from 'sonner'
-import { composeAssistantMessage, parseHarmony, t } from '@renderer/utils/utils'
+import { composeAssistantMessage, findUrls, parseHarmony, t } from '@renderer/utils/utils'
 import { makeApprovalRequester, runAgentLoop } from '@renderer/utils/agent'
+import { routeIntent, runDeepResearch, runReasoning } from '@renderer/utils/agents'
 
 // interface experimentalSearchType {
 //   output: string,
@@ -32,17 +34,6 @@ interface userContentType {
   role: string
   content: string
   images?: string[]
-}
-
-// to extract urls from string
-function findUrls(text: string): string[] {
-  const urlPattern = new RegExp(
-    // eslint-disable-next-line no-useless-escape
-    /(?:https?:\/\/|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}\/)(?:[^\s()<>]+|\((?:[^\s()<>]+|(?:\([^\s()<>]+\)))\))+(?:\((?:[^\s()<>]+|(?:\([^\s()<>]+\)))\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’])?/gi
-  );
-
-  const urls = text.match(urlPattern) ?? [];
-  return urls;
 }
 
 // Ollama's /api/show exposes the model's context length under an architecture-prefixed key,
@@ -79,6 +70,7 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
   const agentMode = useAtomValue(agentModeAtom) // manual | acceptEdits | plan | auto
   const workingFolder = useAtomValue(workingFolderAtom)
   const setApproval = useSetAtom(agentApprovalAtom)
+  const effort = useAtomValue(effortAtom) // DeepResearch breadth: low | medium | high
   // To Debug
   // useEffect(()=>{console.log(stream);
   // },[stream])
@@ -157,6 +149,64 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
           setGenerating(false)
         }
         return
+      }
+
+      // Auto-routed agents (Chat tab only): the model decides whether a message needs plain chat,
+      // careful reasoning, or web research — there is no manual mode toggle. Skipped when an image or a
+      // RAG file is attached (those have their own dedicated flows below). The existing web-search toggle,
+      // when on, forces research.
+      if (activeTab === 'chat' && !imageAttatchment && file.length === 0) {
+        const intent = experimentalSearch ? 'research' : await routeIntent(modelName, prompt)
+        if (intent === 'reason') {
+          try {
+            const composed = await runReasoning({
+              model: modelName,
+              messages: [...chat, initialUser],
+              onProgress: (t) => setStream(t),
+              shouldStop: () => stopGeneratingRef.current
+            })
+            const ai = { role: 'assistant', content: composed }
+            addChat([...chat, initialUser, ai])
+            setChat((preValue) => [...preValue, ai])
+          } catch (error) {
+            toast(`${error}`)
+          } finally {
+            setStream('')
+            setStopGenerating(false)
+            setLoading(false)
+            setGenerating(false)
+            setImageAttachment('')
+          }
+          return
+        }
+        if (intent === 'research') {
+          try {
+            const { content, sources: researchSources } = await runDeepResearch({
+              model: modelName,
+              prompt,
+              effort,
+              onProgress: (t) => setStream(t),
+              shouldStop: () => stopGeneratingRef.current
+            })
+            const ai = {
+              role: 'assistant',
+              content: researchSources ? content + '\n' + researchSources : content
+            }
+            addChat([...chat, initialUser, ai])
+            setChat((preValue) => [...preValue, ai])
+          } catch (error) {
+            toast(`${error}`)
+          } finally {
+            setStream('')
+            setExperimentalSearch(false)
+            setStopGenerating(false)
+            setLoading(false)
+            setGenerating(false)
+            setImageAttachment('')
+          }
+          return
+        }
+        // intent === 'chat' → fall through to the normal streaming chat below.
       }
 
       // if the experimental search exists it will perform IPC invoke to the main functino and return the new prompt based on the search
