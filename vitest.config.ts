@@ -9,7 +9,8 @@ import { defineConfig } from 'vitest/config'
  */
 export default defineConfig({
   test: {
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.{ts,tsx}'],
+    // Default to node; component tests opt into a DOM via `// @vitest-environment happy-dom`.
     environment: 'node'
   },
   resolve: {
