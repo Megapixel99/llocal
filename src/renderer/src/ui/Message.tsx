@@ -13,6 +13,7 @@ import { Table } from "./Table";
 import { CopyButton } from "./CopyButton";
 import { TextToSpeech } from "@renderer/components/Chat/Messages/TextToSpeech";
 import { Branch } from "@renderer/components/Chat/Messages/Branch";
+import { ExportDocument } from "@renderer/components/Chat/Messages/ExportDocument";
 
 interface Message extends ComponentProps<'div'> {
   message: string,
@@ -84,6 +85,7 @@ export const AiMessage = ({ message, stream, index = 0, ...props }: Message): Re
     <div className="mx-5 group-hover:animate-fadeIn opacity-0 group-hover:opacity-100 flex gap-2">
       <CopyButton className="opacity-75" text={message} />
       <TextToSpeech text={message} />
+      <ExportDocument text={message} />
       <Branch index={index} />
     </div>
   </div>

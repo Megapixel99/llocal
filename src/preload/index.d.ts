@@ -75,7 +75,8 @@ declare global {
       runScheduleNow: (id: string) => Promise<boolean>,
       setScheduleAgentMode: (mode: AgentMode) => Promise<void>,
       onScheduleFire: (cb: (task: Task) => void) => () => void,
-      onScheduleNotice: (cb: (notice: ScheduleNotice) => void) => () => void
+      onScheduleNotice: (cb: (notice: ScheduleNotice) => void) => () => void,
+      docgenCreate: (spec: unknown) => Promise<string>
     }
   }
 }

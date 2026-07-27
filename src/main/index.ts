@@ -12,6 +12,7 @@ import { webSearch, webSearchType } from './websearch'
 import { puppeteerSearch } from './puppeteer'
 import { deleteVectorDb, getFileName, getSelectedFiles, getSelectedFolder, getVectorDbList, saveVectorDb, similaritySearch } from './utils/rag-utils'
 import { generateDocs, SUPPORTED_EXTENSIONS } from './utils/docs-generator'
+import { saveDocument } from './utils/doc-builder'
 import { createPullRequest, createWorktree, getGitCapabilities, getGitInfo, listWorktrees } from './utils/git-utils'
 import { AGENT_TOOLS, MUTATING_TOOLS, runAgentTool } from './utils/agent-tools'
 import { killTerminal, startTerminal, writeTerminal, StartTerminalOptions } from './utils/terminal'
@@ -351,6 +352,15 @@ app.whenReady().then(() => {
   // Scans ~/.claude/commands, the LLocal commands folder, and the bundled
   // examples, returning prompt templates the renderer expands locally.
   ipcMain.handle('listCommands', async (): Promise<Command[]> => listCommands())
+
+  // ---- Document generation (DOCX / PPTX / XLSX) — the inverse of RAG parsing ----
+  // Takes a validated document spec (see src/shared/doc-gen.ts), builds the Office
+  // file with doc-builder, and writes it via a save dialog (falling back to the
+  // downloads dir). Returns the saved path, or '' when the user cancels.
+  ipcMain.handle('docgenCreate', async (_event, spec: unknown): Promise<string> => {
+    const saved = await saveDocument(spec, downloadDirectory)
+    return saved ?? ''
+  })
 
   ipcMain.handle('similaritySearch', async (_event, selectedKnowledge: addKnowledgeType[], prompt: string): Promise<ragReturn> => {
     const response = await similaritySearch(selectedKnowledge, prompt)
