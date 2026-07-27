@@ -65,7 +65,10 @@ execRouter.post('/', (req, res) => {
             ? (error as { code?: number }).code
             : error
               ? 1
-              : 0
+              : 0,
+          // Reinforce that this endpoint is powerful; surfaced in the app UI.
+          warning:
+            'Ran on the host as the server user. Keep /exec on a trusted LAN/VPN only and restrict it with LLOCAL_EXEC_ALLOWLIST.'
         })
       }
     )

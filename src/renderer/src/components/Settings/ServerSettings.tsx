@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import { useAtom } from 'jotai'
 import { toast } from 'sonner'
+import { LuCopy, LuRefreshCw, LuAlertTriangle, LuExternalLink } from 'react-icons/lu'
 import { Button } from '@renderer/ui/Button'
 import { t } from '@renderer/utils/utils'
 import { remoteConfigAtom } from '@renderer/platform/config'
 import { rebuildOllamaClients } from '@renderer/utils/ollama'
-import { pingOllama, pingServer } from '@renderer/platform/serverClient'
+import { pingOllama, pingServer, fetchPairing, type PairingResponse } from '@renderer/platform/serverClient'
+import { parsePairingPayload } from '../../../../shared/pairing'
 
 const fieldClass =
   'p-3 w-full bg-foreground placeholder:text-black placeholder:text-opacity-60 dark:bg-opacity-20 dark:bg-background dark:text-white dark:placeholder-white dark:placeholder:opacity-60 outline-none rounded-xl text-sm bg-opacity-20 backdrop-blur-lg shadow-xl'
@@ -37,10 +39,34 @@ function Field({
   )
 }
 
+/** Copy text to the clipboard with a graceful fallback, then toast. */
+async function copyText(text: string, label: string): Promise<void> {
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    toast.success(`${label} ${t('copied')}`)
+  } catch {
+    toast.error(t('Could not copy to clipboard'))
+  }
+}
+
 export const ServerSettings = (): React.ReactElement => {
   const [config, setConfig] = useAtom(remoteConfigAtom)
   const [form, setForm] = useState(config)
   const [testing, setTesting] = useState(false)
+  const [pairing, setPairing] = useState<PairingResponse | null>(null)
+  const [pairingBusy, setPairingBusy] = useState(false)
+  const [pastePayload, setPastePayload] = useState('')
 
   function update(patch: Partial<typeof form>): void {
     setForm((prev) => ({ ...prev, ...patch }))
@@ -85,6 +111,49 @@ export const ServerSettings = (): React.ReactElement => {
     }
   }
 
+  /** Ask the server for its current pairing payload, or rotate the token first. */
+  async function loadPairing(rotate: boolean): Promise<void> {
+    if (!form.serverBaseUrl) {
+      toast.info(t('Enter a companion server URL first'))
+      return
+    }
+    setPairingBusy(true)
+    try {
+      const res = await fetchPairing(form.serverBaseUrl, form.serverToken, rotate)
+      setPairing(res)
+      // A rotated token invalidates the old one — persist the new token (and the
+      // server-reported URL) immediately so this app stays connected.
+      if (rotate) {
+        const next = { serverBaseUrl: res.serverUrl, serverToken: parsePairingPayload(res.payload).token }
+        update(next)
+        setConfig(next)
+        rebuildOllamaClients()
+        toast.success(t('Token rotated and saved'))
+      } else {
+        toast.success(t('Pairing code ready'))
+      }
+    } catch (e) {
+      toast.error(`${t('Could not reach server')}: ${e}`)
+    } finally {
+      setPairingBusy(false)
+    }
+  }
+
+  /** Apply a pasted pairing payload (mobile flow): configure URL + token. */
+  function applyPastedPayload(): void {
+    try {
+      const parsed = parsePairingPayload(pastePayload.trim())
+      const next = { serverBaseUrl: parsed.serverUrl, serverToken: parsed.token }
+      update(next)
+      setConfig(next)
+      rebuildOllamaClients()
+      setPastePayload('')
+      toast.success(t('Paired with server'))
+    } catch (e) {
+      toast.error(`${t('Invalid pairing code')}: ${e}`)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 max-w-xl w-full">
       <section className="flex flex-col gap-3">
@@ -120,6 +189,154 @@ export const ServerSettings = (): React.ReactElement => {
         <Button variant="primary" className="w-fit" onClick={testServer} disabled={testing}>
           {t('Test server')}
         </Button>
+      </section>
+
+      {/* --- Pair a device -------------------------------------------------- */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg">{t('Pair a device')}</h2>
+        <p className="text-xs opacity-60">
+          {t(
+            'Generate a pairing code, then paste it into LLocal on your phone to configure the server URL and token in one step.'
+          )}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="primary"
+            className="w-fit"
+            onClick={() => loadPairing(false)}
+            disabled={pairingBusy}
+          >
+            {t('Show pairing code')}
+          </Button>
+          <Button
+            variant="secondary"
+            className="w-fit flex items-center gap-2"
+            onClick={() => loadPairing(true)}
+            disabled={pairingBusy}
+          >
+            <LuRefreshCw className={pairingBusy ? 'animate-spin' : ''} />
+            {t('Rotate token')}
+          </Button>
+        </div>
+
+        {pairing && (
+          <div className="flex flex-col gap-2 rounded-xl bg-background bg-opacity-20 dark:bg-opacity-20 p-3">
+            <span className="text-xs opacity-70">{t('Pairing code')}</span>
+            <div className="flex items-start gap-2">
+              <code className="text-xs break-all flex-1 opacity-90">{pairing.payload}</code>
+              <button
+                type="button"
+                title={t('Copy pairing code')}
+                className="opacity-60 hover:opacity-100 transition-all shrink-0"
+                onClick={() => copyText(pairing.payload, t('Pairing code'))}
+              >
+                <LuCopy />
+              </button>
+            </div>
+            {pairing.candidateUrls.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs opacity-70">{t('Reachable on your LAN')}</span>
+                {pairing.candidateUrls.map((u) => (
+                  <div key={u} className="flex items-center gap-2">
+                    <code className="text-xs opacity-90">{u}</code>
+                    <button
+                      type="button"
+                      title={t('Copy URL')}
+                      className="opacity-60 hover:opacity-100 transition-all"
+                      onClick={() => copyText(u, t('URL'))}
+                    >
+                      <LuCopy />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {pairing.execEnabled && (
+              <p className="text-xs text-amber-500 flex items-start gap-1">
+                <LuAlertTriangle className="mt-0.5 shrink-0" />
+                <span>{pairing.execWarning || t('/exec is enabled on this server.')}</span>
+              </p>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* --- Paste a pairing code (mobile) --------------------------------- */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg">{t('Paste a pairing code')}</h2>
+        <p className="text-xs opacity-60">
+          {t('On a phone, paste the code shown on your desktop to configure this app.')}
+        </p>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs opacity-70">{t('Pairing code')}</span>
+          <textarea
+            className={`${fieldClass} font-mono min-h-[72px] resize-y`}
+            value={pastePayload}
+            placeholder={t('Paste the code from your desktop here')}
+            onChange={(e) => setPastePayload(e.target.value)}
+          />
+        </label>
+        <Button
+          variant="primary"
+          className="w-fit"
+          onClick={applyPastedPayload}
+          disabled={!pastePayload.trim()}
+        >
+          {t('Apply pairing code')}
+        </Button>
+      </section>
+
+      {/* --- Remote access help -------------------------------------------- */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg">{t('Remote access')}</h2>
+        <p className="text-xs text-amber-500 flex items-start gap-1">
+          <LuAlertTriangle className="mt-0.5 shrink-0" />
+          <span>
+            {t(
+              'Only expose the companion server over a LAN or private VPN, never the open internet. Always use a long, random token, and keep /exec disabled unless you truly need it.'
+            )}
+          </span>
+        </p>
+
+        <div className="flex flex-col gap-1 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{t('Tailscale (recommended)')}</span>
+            <a
+              className="opacity-60 hover:opacity-100 transition-all"
+              href="https://tailscale.com/download"
+              target="_blank"
+              rel="noreferrer"
+              title="tailscale.com/download"
+            >
+              <LuExternalLink />
+            </a>
+          </div>
+          <ol className="list-decimal list-inside text-xs opacity-70 flex flex-col gap-0.5">
+            <li>{t('Install Tailscale on the server host and on your phone; sign in to the same tailnet.')}</li>
+            <li>{t('Find the host’s tailnet IP (100.x.y.z) or MagicDNS name (`tailscale ip -4`).')}</li>
+            <li>{t('Use http://<tailnet-ip>:8787 as the Server URL, then pair as above.')}</li>
+          </ol>
+        </div>
+
+        <div className="flex flex-col gap-1 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{t('Cloudflare Tunnel')}</span>
+            <a
+              className="opacity-60 hover:opacity-100 transition-all"
+              href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/"
+              target="_blank"
+              rel="noreferrer"
+              title="developers.cloudflare.com/cloudflare-one"
+            >
+              <LuExternalLink />
+            </a>
+          </div>
+          <ol className="list-decimal list-inside text-xs opacity-70 flex flex-col gap-0.5">
+            <li>{t('Install cloudflared on the host and run `cloudflared tunnel login`.')}</li>
+            <li>{t('Expose the server: `cloudflared tunnel --url http://localhost:8787`.')}</li>
+            <li>{t('Put Cloudflare Access in front of the hostname so only you can reach it, then use the https URL to pair.')}</li>
+          </ol>
+        </div>
       </section>
 
       <section className="flex flex-col gap-3">
