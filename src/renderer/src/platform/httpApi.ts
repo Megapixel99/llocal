@@ -41,7 +41,21 @@ export interface LlocalApi {
   getLanguages: () => Promise<readonly string[]>
   titleBar: (event: string) => void
   textToSpeech: (text: string) => Promise<ArrayBuffer>
+  // Added on the desktop coding-agent update. These operate on a LOCAL folder,
+  // which a phone doesn't have, so on mobile they degrade gracefully. The mobile
+  // Git workflow lives in Settings → Repo & Console (companion-server backed).
+  addKnowledgeFolder: () => Promise<{ folder: string; added: AddKnowledgeType[] }>
+  selectFolder: () => Promise<string>
+  getGitCapabilities: () => Promise<{ git: boolean; gh: boolean; ghAuth: boolean }>
+  getGitInfo: (folder: string) => Promise<{ isRepo: boolean }>
+  listWorktrees: (folder: string) => Promise<unknown[]>
+  createWorktree: (folder: string, name: string) => Promise<string>
+  createPullRequest: (folder: string, title: string, body: string) => Promise<string>
+  getAgentTools: () => Promise<{ tools: object[]; mutating: string[] }>
+  runAgentTool: (root: string, name: string, args: object) => Promise<string>
 }
+
+const DESKTOP_ONLY = 'This feature is desktop-only. On mobile, use Settings → Repo & Console.'
 
 function requireServer(): { baseUrl: string; token: string } {
   const cfg = getServerConfig()
@@ -151,6 +165,17 @@ export function createHttpApi(): LlocalApi {
         body: JSON.stringify({ text })
       })
       return await res.arrayBuffer()
-    }
+    },
+
+    // --- Desktop coding-agent surface: graceful mobile fallbacks. ---
+    addKnowledgeFolder: () => Promise.reject(new Error(DESKTOP_ONLY)),
+    selectFolder: async () => '',
+    getGitCapabilities: async () => ({ git: false, gh: false, ghAuth: false }),
+    getGitInfo: async () => ({ isRepo: false }),
+    listWorktrees: async () => [],
+    createWorktree: () => Promise.reject(new Error(DESKTOP_ONLY)),
+    createPullRequest: () => Promise.reject(new Error(DESKTOP_ONLY)),
+    getAgentTools: async () => ({ tools: [], mutating: [] }),
+    runAgentTool: () => Promise.reject(new Error(DESKTOP_ONLY))
   }
 }

@@ -72,16 +72,21 @@ ollama pull all-minilm      # embedding model used by RAG / web search
 
 ## Build & run the iOS app
 
-Requires a **Mac with Xcode** (Apple only allows iOS builds on macOS).
+Requires a **Mac with Xcode** (Apple only allows iOS builds on macOS). The
+native `ios/` project is already committed (with an ATS exception for local-network
+HTTP pre-set in `Info.plist`), so you don't need to run `cap add ios` yourself.
 
 ```bash
 npm install
-npm run build:web           # builds the renderer to dist-web/
-npm run cap:add:ios         # one-time: generates the native ios/ project
-npm run cap:ios             # build:web + cap sync + open Xcode
+sudo gem install cocoapods  # once, if you don't have CocoaPods
+npm run cap:ios             # build:web + cap sync (runs pod install) + open Xcode
 ```
 
-Then in Xcode press ▶ to run on a simulator or a connected device.
+Then in Xcode select your team under Signing & Capabilities and press ▶ to run on
+a simulator or a connected device.
+
+> If you ever need to regenerate the native project from scratch, delete `ios/`
+> and run `npm run cap:add:ios`.
 
 You can also preview the web build in a desktop browser with `npm run dev:web`.
 
