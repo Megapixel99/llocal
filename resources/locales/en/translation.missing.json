@@ -1,5 +1,25 @@
 {
   "files": "files",
   "Add files": "Add files",
-  "Only pdf, pptx, csv, txt, docx and image files are supported!": "Only pdf, pptx, csv, txt, docx and image files are supported!"
+  "Only pdf, pptx, csv, txt, docx and image files are supported!": "Only pdf, pptx, csv, txt, docx and image files are supported!",
+  "Context window usage": "Context window usage",
+  "Choose a folder to work in": "Choose a folder to work in",
+  "Choose folder": "Choose folder",
+  "Chat": "Chat",
+  "Normal chat": "Normal chat",
+  "Runs tools; asks before editing files or running commands": "Runs tools; asks before editing files or running commands",
+  "Agent · Ask": "Agent · Ask",
+  "Runs tools, edits, and commands without asking": "Runs tools, edits, and commands without asking",
+  "Agent · Auto": "Agent · Auto",
+  "Read-only: explores and produces a plan, no changes": "Read-only: explores and produces a plan, no changes",
+  "Agent · Plan": "Agent · Plan",
+  "Manual": "Manual",
+  "Approve every file edit and command": "Approve every file edit and command",
+  "Auto-apply file edits; still confirm commands": "Auto-apply file edits; still confirm commands",
+  "Accept edits": "Accept edits",
+  "Plan": "Plan",
+  "Runs edits and commands without asking": "Runs edits and commands without asking",
+  "Auto": "Auto",
+  "Agent": "Agent",
+  "Code": "Code"
 }

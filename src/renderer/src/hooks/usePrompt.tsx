@@ -1,20 +1,27 @@
 import {
+  activeTabAtom,
+  agentApprovalAtom,
+  agentModeAtom,
   chatAtom,
+  contextUsageAtom,
   experimentalSearchAtom,
   fileContextAtom,
+  generatingAtom,
   imageAttatchmentAtom,
   prefModelAtom,
   stopGeneratingAtom,
   streamingAtom,
   suggestionsAtom,
+  workingFolderAtom,
 } from '@renderer/store/mocks'
 import { getOllama } from '@renderer/utils/ollama'
 // import axios from 'axios'
-import { useAtom, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useEffect, useRef, useState } from 'react'
 import { useDb } from './useDb'
 import { toast } from 'sonner'
-import { t } from '@renderer/utils/utils'
+import { composeAssistantMessage, parseHarmony, t } from '@renderer/utils/utils'
+import { makeApprovalRequester, runAgentLoop } from '@renderer/utils/agent'
 
 // interface experimentalSearchType {
 //   output: string,
@@ -38,6 +45,19 @@ function findUrls(text: string): string[] {
   return urls;
 }
 
+// Ollama's /api/show exposes the model's context length under an architecture-prefixed key,
+// e.g. "llama.context_length" or "gemma3.context_length". model_info is a Map (older builds used a
+// plain object), so we handle both and look up whichever key ends in ".context_length".
+function extractContextLength(info: { model_info?: Map<string, unknown> | Record<string, unknown> }): number {
+  const modelInfo = info?.model_info
+  if (!modelInfo) return 0
+  const entries = modelInfo instanceof Map ? modelInfo : new Map(Object.entries(modelInfo))
+  for (const [key, value] of entries) {
+    if (key.endsWith('.context_length')) return Number(value) || 0
+  }
+  return 0
+}
+
 
 
 export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
@@ -53,6 +73,12 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
   const [experimentalSearch, setExperimentalSearch] = useAtom(experimentalSearchAtom)
   const [file, setFile] = useAtom(fileContextAtom)
   const [suggestions, setSuggestions] = useAtom(suggestionsAtom)
+  const setGenerating = useSetAtom(generatingAtom) // drives the thinking animation while a response is in-flight
+  const setContextUsage = useSetAtom(contextUsageAtom) // tokens used vs the model's context window
+  const activeTab = useAtomValue(activeTabAtom) // chat | agent
+  const agentMode = useAtomValue(agentModeAtom) // manual | acceptEdits | plan | auto
+  const workingFolder = useAtomValue(workingFolderAtom)
+  const setApproval = useSetAtom(agentApprovalAtom)
   // To Debug
   // useEffect(()=>{console.log(stream);
   // },[stream])
@@ -62,8 +88,27 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
     stopGeneratingRef.current = stopGenerating
   }, [stopGenerating])
 
+  // Look up the selected model's context window size so we can show how full the context is.
+  useEffect(() => {
+    if (!modelName) return
+    let cancelled = false
+    getOllama()
+      .show({ model: modelName })
+      .then((info) => {
+        if (cancelled) return
+        setContextUsage((pre) => ({ ...pre, total: extractContextLength(info) }))
+      })
+      .catch(() => {
+        /* older Ollama / missing model — leave total at its previous value */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [modelName])
+
   const promptReq = async (prompt: string): Promise<void> => {
     setLoading(true)
+    setGenerating(true)
     // Capture a single client for this request so chat + abort target the same instance.
     const ollama = getOllama()
     try {
@@ -78,6 +123,42 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
 
       setChat((preValue) => [...preValue, user])
 
+      // The Agent tab needs a working folder to operate in; warn and fall back to plain chat otherwise.
+      if (activeTab === 'agent' && !workingFolder) {
+        toast.warning(t('Choose a working folder to use the agent'))
+      }
+
+      // Coding-agent loop: on the Agent tab with a working folder set, run the tool loop instead of a
+      // plain chat (bypasses web-search / RAG rewriting).
+      if (activeTab === 'agent' && workingFolder) {
+        try {
+          const { tools, mutating } = await window.api.getAgentTools()
+          const transcript = await runAgentLoop({
+            model: modelName,
+            root: workingFolder,
+            mode: agentMode,
+            messages: [...chat, { role: 'user', content: prompt }],
+            tools,
+            mutating: new Set(mutating),
+            requestApproval: makeApprovalRequester(setApproval),
+            onProgress: (t) => setStream(t),
+            shouldStop: () => stopGeneratingRef.current
+          })
+          const ai = { role: 'assistant', content: transcript }
+          addChat([...chat, initialUser, ai])
+          setChat((preValue) => [...preValue, ai])
+        } catch (error) {
+          toast.error(`${error}`)
+        } finally {
+          setStream('')
+          setApproval(null)
+          setStopGenerating(false)
+          setLoading(false)
+          setGenerating(false)
+        }
+        return
+      }
+
       // if the experimental search exists it will perform IPC invoke to the main functino and return the new prompt based on the search
       if (experimentalSearch) {
         // checking if the prompt contains urls
@@ -90,6 +171,8 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
         } catch (error) {
           toast(`${error}`)
           setExperimentalSearch(false)
+          setLoading(false)
+          setGenerating(false)
           return
         }
       }
@@ -102,6 +185,8 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
         } catch (error) {
           toast(`${error}`)
           setFile([])
+          setLoading(false)
+          setGenerating(false)
           return
         }
       }
@@ -114,24 +199,50 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
       //   responseType: 'stream'
       // })
 
-      const response = await ollama.chat({
-        model: modelName,
-        messages: [...chat, user],
-        stream: true
-      })
+      // Reasoning models (gpt-oss / harmony format) can route their reasoning into Ollama's separate
+      // `message.thinking` field via the `think` option, instead of leaking raw <|channel|> tokens into
+      // the content. Not every model accepts the option, so we fall back to a plain request if it's rejected.
+      let response
+      try {
+        response = await ollama.chat({
+          model: modelName,
+          messages: [...chat, user],
+          stream: true,
+          think: true
+        })
+      } catch {
+        response = await ollama.chat({
+          model: modelName,
+          messages: [...chat, user],
+          stream: true
+        })
+      }
 
       let chunk = ''
+      let thinking = ''
 
       for await (const part of response) {
-        chunk += part.message.content
+        chunk += part.message.content ?? ''
+        // native reasoning, when the model provides it separately from the answer
+        if (part.message.thinking) thinking += part.message.thinking
+
         // incase stop generating is invoked as true, then we abort the process
         if (part.done == true || stopGeneratingRef.current) {
-          // break;
+          // recover reasoning/answer from any harmony tokens that leaked into the content stream
+          const parsed = parseHarmony(chunk)
+          const display = composeAssistantMessage(thinking || parsed.thinking, parsed.content)
+          // surface how full the context window is (prompt tokens + generated tokens)
+          if (part.prompt_eval_count || part.eval_count) {
+            setContextUsage((pre) => ({
+              ...pre,
+              used: (part.prompt_eval_count ?? 0) + (part.eval_count ?? 0)
+            }))
+          }
           // defining the ai assistant object which contains the response
-          let ai = { role: 'assistant', content: chunk }
+          let ai = { role: 'assistant', content: display }
           // incase, sources exist we show the relevant citations aswell
           if (sources) {
-            ai = { role: 'assistant', content: chunk + '\n' + sources }
+            ai = { role: 'assistant', content: display + '\n' + sources }
           }
           addChat([...chat, initialUser, ai])
           setChat((preValue) => [...preValue, ai])
@@ -140,7 +251,9 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
           ollama.abort()
           break
         }
-        setStream(chunk)
+        // live preview: reasoning shows in the thinking accordion, answer text streams below it
+        const parsed = parseHarmony(chunk)
+        setStream(composeAssistantMessage(thinking || parsed.thinking, parsed.content))
       }
       // TODO: use Structured outputs here aswell
       // incase suggestions are toggled on
@@ -162,10 +275,12 @@ and you **NEED** to strictly follow the following output schema:
       // clearing states as required
       setExperimentalSearch(false)
       setLoading(false)
+      setGenerating(false)
       setImageAttachment('')
     } catch (error) {
       console.error(error)
       setLoading(false)
+      setGenerating(false)
       setImageAttachment('')
       // handling the error with toasts
       toast(`${error}`)

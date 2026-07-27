@@ -1,5 +1,6 @@
 import { listModels } from '@renderer/hooks/useOllama'
 import { atom } from 'jotai'
+import { atomWithStorage } from 'jotai/utils'
 
 export interface Message {
   role: string
@@ -37,10 +38,17 @@ export const messages = [
 export const chatAtom = atom<Message[]>([]) // Current Chat
 export const selectedChatIndexAtom = atom<string>('') // Selected Chat
 export const streamingAtom = atom<string>('') // Handling Streaming
+export const generatingAtom = atom<boolean>(false) // True from when a prompt is sent until the response is complete (drives the thinking animation)
 export const stopGeneratingAtom = atom<boolean>(false) // Handling the option to stop generating
 export const imageAttatchmentAtom = atom<string>('') // Storing the base64 image
 export const experimentalSearchAtom = atom<boolean>(false) // Toggle for websearch
 export const fileContextAtom = atom<fileContext[]>([]) // For storing the current file for RAG
+export const workingFolderAtom = atomWithStorage<string>('workingFolder', '') // Chosen working folder (like a project dir); persisted, enables git features when it's a repo
+export type appTab = 'chat' | 'agent' // left-sidebar tabs: plain chat vs the coding agent
+export const activeTabAtom = atomWithStorage<appTab>('activeTab', 'chat')
+export type agentMode = 'manual' | 'acceptEdits' | 'plan' | 'auto' // manual = approve every action; acceptEdits = auto-write files but confirm commands; plan = read-only; auto = run everything
+export const agentModeAtom = atomWithStorage<agentMode>('agentMode', 'manual')
+export const agentApprovalAtom = atom<{ tool: string; args: Record<string, unknown> } | null>(null) // pending mutating action awaiting user approval
 export const knowledgeBaseAtom = atom<getVectorDb[]>([]) // For storing the list of vector db's
 export const modelListAtom = atom<listModels[]>(JSON.parse(localStorage.getItem('modelList') || '[]') as listModels[]) // Storing List of Models in Local Storage
 export const settingsToggleAtom = atom<boolean>(false)
@@ -48,6 +56,7 @@ export const isOllamaInstalledAtom = atom<boolean>(false)
 export const suggestionsAtom = atom<suggestions>({ show: JSON.parse(localStorage.getItem('showSuggestions') || 'false'), prompts: [] })
 export const fileDropAtom = atom<boolean>(false)
 export const titleUpdateAtom = atom<number>(0)
+export const contextUsageAtom = atom<{ used: number; total: number }>({ used: 0, total: 0 }) // tokens used vs the model's context window
 
 // User Preferences
 const url = new URL('/src/assets/themes/galaxia.svg', import.meta.url).href
