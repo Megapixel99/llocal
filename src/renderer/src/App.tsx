@@ -17,14 +17,17 @@ import { GetVersion } from './components/Settings/GetVersion'
 import { TitleBar } from './components/TitleBar/Titlebar'
 import { Theme, ThemeProvider } from './ui/ThemeProvider'
 import { useChatSync } from './hooks/useChatSync'
+import { useSettingsSync } from './hooks/useSettingsSync'
 
 function App(): JSX.Element {
   const [platform, setPlatform] = useState("")
   const [backgroundImage] = useAtom(backgroundImageAtom)
   const setIsOllamaInstalled = useSetAtom(isOllamaInstalledAtom)
 
-  // Keep chats in sync with the companion server (no-op when none is configured).
+  // Keep chats + non-secret settings in sync with the companion server
+  // (both no-ops when no server is configured).
   useChatSync()
+  useSettingsSync()
 
   // Ensuring the state update according to preference
   const theme = localStorage.getItem('darkMode') as Theme
