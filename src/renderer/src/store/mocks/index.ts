@@ -40,6 +40,9 @@ export const messages = [
 
 export const chatAtom = atom<Message[]>([]) // Current Chat
 export const selectedChatIndexAtom = atom<string>('') // Selected Chat
+// The artifact currently open in the side panel (Claude-style). null = panel closed.
+export type ActiveArtifact = { code: string; language: string; title: string }
+export const activeArtifactAtom = atom<ActiveArtifact | null>(null)
 export const streamingAtom = atom<string>('') // Handling Streaming
 export const generatingAtom = atom<boolean>(false) // True from when a prompt is sent until the response is complete (drives the thinking animation)
 export const stopGeneratingAtom = atom<boolean>(false) // Handling the option to stop generating

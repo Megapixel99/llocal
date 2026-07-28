@@ -1,12 +1,15 @@
 import React, { useState } from 'react'
+import { useSetAtom } from 'jotai'
 import SyntaxHighlighter, { SyntaxHighlighterProps } from 'react-syntax-highlighter'
 import { Separator } from './Separator'
-import { LuEye, LuCode } from 'react-icons/lu'
+import { LuEye, LuCode, LuPanelRight } from 'react-icons/lu'
 import Artifacts from './Artifacts'
 import { CopyButton } from './CopyButton'
 import { Card } from './Card'
 import { atomOneDarkReasonable } from 'react-syntax-highlighter/dist/cjs/styles/hljs'
 import { isPreviewableLanguage } from '@renderer/utils/preview'
+import { activeArtifactAtom } from '@renderer/store/mocks'
+import { t } from '@renderer/utils/utils'
 
 // Languages that render as their own diagram/preview rather than plain code.
 const otherArtifacts = ['mermaid']
@@ -21,6 +24,8 @@ export const Code = ({
 }: SyntaxHighlighterProps): React.ReactElement => {
   const [isArtifact, setArtifact] = useState(false)
   const showToggle = canRenderArtifact(language ?? '')
+  const setActiveArtifact = useSetAtom(activeArtifactAtom)
+  const code = String(children)
   return (
     // match[1]
     <Card className="my-2 max-h-full max-w-full p-2" {...props}>
@@ -29,14 +34,27 @@ export const Code = ({
         <div className="flex items-center justify-center gap-3">
           <CopyButton text={children} />
           {showToggle && (
-            <button
-              type="button"
-              onClick={() => setArtifact((pre) => !pre)}
-              className="flex cursor-pointer items-center gap-1 text-xs opacity-75 transition-opacity hover:opacity-100"
-            >
-              {isArtifact ? <LuCode /> : <LuEye />}
-              {isArtifact ? 'Code' : 'Preview'}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setArtifact((pre) => !pre)}
+                className="flex cursor-pointer items-center gap-1 text-xs opacity-75 transition-opacity hover:opacity-100"
+              >
+                {isArtifact ? <LuCode /> : <LuEye />}
+                {isArtifact ? 'Code' : 'Preview'}
+              </button>
+              {/* Open this artifact in the Claude-style side panel. */}
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveArtifact({ code, language: language ?? '', title: language ? `${language} artifact` : 'Artifact' })
+                }
+                className="flex cursor-pointer items-center gap-1 text-xs opacity-75 transition-opacity hover:opacity-100"
+                title={t('Open in side panel')}
+              >
+                <LuPanelRight /> {t('Open')}
+              </button>
+            </>
           )}
         </div>
       </div>
