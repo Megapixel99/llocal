@@ -25,6 +25,8 @@ export const config = {
   reposDir: path.join(dataDir, 'repos'),
   uploadsDir: path.join(dataDir, 'uploads'),
   ttsCacheDir: path.join(dataDir, 'hf-cache'),
+  // SQLite store for cross-device chat + settings sync (see store.ts / sync.ts).
+  dbPath: path.join(dataDir, 'llocal.db'),
   corsOrigin: process.env.LLOCAL_CORS_ORIGIN ?? '*',
   execEnabled: process.env.LLOCAL_ENABLE_EXEC === '1',
   execAllowlist: (process.env.LLOCAL_EXEC_ALLOWLIST ?? '')

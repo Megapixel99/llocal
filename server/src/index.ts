@@ -19,6 +19,7 @@ import { execRouter } from './exec.ts'
 import { commandsRouter } from './commands.ts'
 import { pairingRouter } from './pairing.ts'
 import { ollamaProxyRouter } from './ollama-proxy.ts'
+import { syncRouter } from './sync.ts'
 
 const app = express()
 app.use(cors({ origin: config.corsOrigin }))
@@ -49,6 +50,7 @@ app.use('/git', gitRouter)
 app.use('/exec', execRouter)
 app.use('/commands', commandsRouter)
 app.use('/pairing', pairingRouter)
+app.use(syncRouter)
 
 app.listen(config.port, () => {
   console.log(`[llocal-server] listening on :${config.port}`)
