@@ -114,7 +114,7 @@ export const Sidebar = ({
           <button
             onClick={() => setOpen(false)}
             aria-label="Close menu"
-            className="lg:hidden absolute top-1/2 right-1 -translate-y-1/2 z-10 rounded-full bg-foreground/10 dark:bg-background/40 p-1 backdrop-blur opacity-70 hover:opacity-100"
+            className="lg:hidden absolute top-1/2 right-0 -translate-y-1/2 z-10 rounded-full bg-foreground/10 dark:bg-background/40 p-1 backdrop-blur opacity-70 hover:opacity-100"
           >
             <IoIosArrowBack className="text-2xl" />
           </button>
