@@ -22,6 +22,7 @@ type useDbReturn = {
   updateDate: (date: string) => Promise<string>
   updateTitle: (date: string, title: string) => Promise<void>
   markRead: (date: string) => Promise<void>
+  markUnread: (date: string) => Promise<void>
   deleteChat: (date: string) => Promise<void>
 }
 
@@ -126,5 +127,15 @@ export function useDb(): useDbReturn {
     }
   }
 
-  return { addChat, getMessageList, getChat, getMetrics, updateDate, updateTitle, markRead, deleteChat }
+  // Flag a chat unread again (from the chat menu); bumps titleUpdate so the badge re-renders.
+  const markUnread = async (date: string): Promise<void> => {
+    try {
+      await db.collection('chat').doc({ date: date }).update({ unread: true })
+      setTitleUpdate(new Date().getTime())
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  return { addChat, getMessageList, getChat, getMetrics, updateDate, updateTitle, markRead, markUnread, deleteChat }
 }

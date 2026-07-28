@@ -81,4 +81,21 @@ describe('useDb per-chat analytics persistence', () => {
     docs.set('legacy', { date: 'legacy', title: 'old', chat: [] }) // no metrics field
     await expect(result.current.getMetrics('legacy')).resolves.toEqual([])
   })
+
+  it('markUnread flags the chat unread; markRead clears it (chat-menu action)', async () => {
+    const { store, result } = setup()
+    store.set(sessionMetricsAtom, [])
+    let date = ''
+    await act(async () => {
+      date = await result.current.addChat(msgs)
+    })
+    await act(async () => {
+      await result.current.markUnread(date)
+    })
+    expect(docs.get(date)?.unread).toBe(true)
+    await act(async () => {
+      await result.current.markRead(date)
+    })
+    expect(docs.get(date)?.unread).toBe(false)
+  })
 })
