@@ -4,7 +4,7 @@ import { IoIosArrowForward, IoIosArrowBack } from 'react-icons/io'
 import { IoMenu } from 'react-icons/io5'
 import { AiFillCloseCircle } from 'react-icons/ai'
 import { fileDropAtom, settingsToggleAtom } from '@renderer/store/mocks'
-import { useAtom, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { cn, t } from '@renderer/utils/utils'
 import { useFileDrop } from '@renderer/hooks/useFileDrop'
 
@@ -77,6 +77,8 @@ export const Sidebar = ({
   const [open, setOpen] = useState(
     () => typeof window === 'undefined' || window.innerWidth >= 1024
   )
+  // The Settings overlay covers the drawer; hide the drawer-close tab while it's up.
+  const settingsOpen = useAtomValue(settingsToggleAtom)
   return (
     <>
       {/* Hamburger to open the drawer — mobile only, shown when closed. */}
@@ -99,8 +101,8 @@ export const Sidebar = ({
         />
       )}
       {/* Close tab (mobile) — sits just OUTSIDE the drawer's right edge (over the backdrop) so it
-          never covers the chat list or its scrollbar. Positioned at the drawer's width. */}
-      {open && (
+          never covers the chat list or its scrollbar. Hidden while the Settings overlay is up. */}
+      {open && !settingsOpen && (
         <button
           onClick={() => setOpen(false)}
           aria-label="Close menu"

@@ -332,13 +332,13 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
           className={`min-h-[3.25rem] max-h-48 w-full resize-none overflow-y-auto rounded-2xl pl-11 pr-12 py-3.5 leading-relaxed ${fileDrop && "outline-dotted outline-2 opacity-50 hover:opacity-100"}`}
           placeholder={isLoading ? t("Queue a message…") : t("Enter your prompt")}
         />
-        <MoreButton className="text-2xl absolute left-2 bottom-2" />
+        <MoreButton className="text-2xl absolute left-2 bottom-3.5" />
 
         {isLoading ? <Button
           type="reset"
           variant={'icon'}
           onClick={handleClick}
-          className="text-2xl absolute right-2 bottom-2"
+          className="text-2xl absolute right-2 bottom-3.5"
         >
           <PiStopCircleBold />
         </Button>
@@ -347,7 +347,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
             type="submit"
             variant={'icon'}
             disabled={isLoading}
-            className="text-2xl absolute right-2 bottom-2"
+            className="text-2xl absolute right-2 bottom-3.5"
           >
             <PiPaperPlaneRightFill />
           </Button>}
