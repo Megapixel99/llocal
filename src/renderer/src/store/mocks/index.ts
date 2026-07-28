@@ -76,6 +76,15 @@ export const isOllamaInstalledAtom = atom<boolean>(false)
 export const suggestionsAtom = atom<suggestions>({ show: JSON.parse(localStorage.getItem('showSuggestions') || 'false'), prompts: [] })
 export const fileDropAtom = atom<boolean>(false)
 export const titleUpdateAtom = atom<number>(0)
+
+// Cross-device sync status (companion server), surfaced by the sidebar indicator.
+// 'idle' = no sync yet · 'syncing' = a pull/push in flight · 'ok' = last sync succeeded ·
+// 'offline' = last attempt couldn't reach the server.
+export type SyncState = 'idle' | 'syncing' | 'ok' | 'offline'
+export const syncStatusAtom = atom<{ state: SyncState; lastSyncedAt: number | null }>({
+  state: 'idle',
+  lastSyncedAt: null
+})
 export const contextUsageAtom = atom<{ used: number; total: number }>({ used: 0, total: 0 }) // tokens used vs the model's context window
 export const sessionMetricsAtom = atom<MessageMetric[]>([]) // per-message token/throughput/tool metrics for the current session (in-memory; drives the analytics panel)
 
