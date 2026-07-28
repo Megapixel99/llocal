@@ -1,13 +1,16 @@
 import React, { useState } from 'react'
 import { useAtom } from 'jotai'
 import { toast } from 'sonner'
-import { LuCopy, LuRefreshCw, LuAlertTriangle, LuExternalLink } from 'react-icons/lu'
+import { LuCopy, LuRefreshCw, LuAlertTriangle, LuExternalLink, LuQrCode, LuScanLine } from 'react-icons/lu'
 import { Button } from '@renderer/ui/Button'
 import { t } from '@renderer/utils/utils'
 import { remoteConfigAtom } from '@renderer/platform/config'
 import { rebuildOllamaClients } from '@renderer/utils/ollama'
 import { pingOllama, pingServer, fetchPairing, type PairingResponse } from '@renderer/platform/serverClient'
 import { parsePairingPayload } from '../../../../shared/pairing'
+import { isElectron } from '@renderer/platform/detect'
+import { QrCode } from '@renderer/ui/QrCode'
+import { QrScanner } from './QrScanner'
 
 const fieldClass =
   'p-3 w-full bg-foreground placeholder:text-black placeholder:text-opacity-60 dark:bg-opacity-20 dark:bg-background dark:text-white dark:placeholder-white dark:placeholder:opacity-60 outline-none rounded-xl text-sm bg-opacity-20 backdrop-blur-lg shadow-xl'
@@ -67,6 +70,7 @@ export const ServerSettings = (): React.ReactElement => {
   const [pairing, setPairing] = useState<PairingResponse | null>(null)
   const [pairingBusy, setPairingBusy] = useState(false)
   const [pastePayload, setPastePayload] = useState('')
+  const [scanning, setScanning] = useState(false)
 
   function update(patch: Partial<typeof form>): void {
     setForm((prev) => ({ ...prev, ...patch }))
@@ -139,15 +143,16 @@ export const ServerSettings = (): React.ReactElement => {
     }
   }
 
-  /** Apply a pasted pairing payload (mobile flow): configure URL + token. */
-  function applyPastedPayload(): void {
+  /** Apply a pairing payload (mobile flow): configure URL + token. Shared by paste and QR-scan. */
+  function applyPayload(raw: string): void {
     try {
-      const parsed = parsePairingPayload(pastePayload.trim())
+      const parsed = parsePairingPayload(raw.trim())
       const next = { serverBaseUrl: parsed.serverUrl, serverToken: parsed.token }
       update(next)
       setConfig(next)
       rebuildOllamaClients()
       setPastePayload('')
+      setScanning(false)
       toast.success(t('Paired with server'))
     } catch (e) {
       toast.error(`${t('Invalid pairing code')}: ${e}`)
@@ -221,7 +226,15 @@ export const ServerSettings = (): React.ReactElement => {
 
         {pairing && (
           <div className="flex flex-col gap-2 rounded-xl bg-background bg-opacity-20 dark:bg-opacity-20 p-3">
-            <span className="text-xs opacity-70">{t('Pairing code')}</span>
+            {/* Scan this from the phone (Settings → Server & Repository → Scan QR). */}
+            <div className="flex items-center gap-2 self-center">
+              <LuQrCode className="opacity-60" />
+              <span className="text-xs opacity-70">{t('Scan this on your phone')}</span>
+            </div>
+            <div className="self-center">
+              <QrCode value={pairing.payload} />
+            </div>
+            <span className="text-xs opacity-70">{t('…or copy the pairing code')}</span>
             <div className="flex items-start gap-2">
               <code className="text-xs break-all flex-1 opacity-90">{pairing.payload}</code>
               <button
@@ -261,14 +274,29 @@ export const ServerSettings = (): React.ReactElement => {
         )}
       </section>
 
-      {/* --- Paste a pairing code (mobile) --------------------------------- */}
+      {/* --- Scan / paste a pairing code (mobile) -------------------------- */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg">{t('Paste a pairing code')}</h2>
+        <h2 className="text-lg">{t('Pair this device')}</h2>
         <p className="text-xs opacity-60">
-          {t('On a phone, paste the code shown on your desktop to configure this app.')}
+          {t('On your phone, scan the QR shown on your desktop — or paste the code below.')}
         </p>
+
+        {/* Scan the desktop's QR with the camera (mobile only). */}
+        {!isElectron() &&
+          (scanning ? (
+            <QrScanner onDecode={(text) => applyPayload(text)} onCancel={() => setScanning(false)} />
+          ) : (
+            <Button
+              variant="primary"
+              className="w-fit flex items-center gap-2"
+              onClick={() => setScanning(true)}
+            >
+              <LuScanLine /> {t('Scan QR')}
+            </Button>
+          ))}
+
         <label className="flex flex-col gap-1">
-          <span className="text-xs opacity-70">{t('Pairing code')}</span>
+          <span className="text-xs opacity-70">{t('…or paste the pairing code')}</span>
           <textarea
             className={`${fieldClass} font-mono min-h-[72px] resize-y`}
             value={pastePayload}
@@ -279,7 +307,7 @@ export const ServerSettings = (): React.ReactElement => {
         <Button
           variant="primary"
           className="w-fit"
-          onClick={applyPastedPayload}
+          onClick={() => applyPayload(pastePayload)}
           disabled={!pastePayload.trim()}
         >
           {t('Apply pairing code')}
