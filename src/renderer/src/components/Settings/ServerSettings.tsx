@@ -237,6 +237,22 @@ export const ServerSettings = (): React.ReactElement => {
         <Button variant="primary" className="w-fit" onClick={testServer} disabled={testing}>
           {t('Test server')}
         </Button>
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-1 shrink-0"
+            checked={form.routeOllamaThroughServer}
+            onChange={(e) => update({ routeOllamaThroughServer: e.target.checked })}
+          />
+          <span className="flex flex-col">
+            <span className="text-sm">{t('Route model traffic through this server')}</span>
+            <span className="text-xs opacity-60">
+              {t(
+                'Send inference to the server’s /ollama proxy (one authenticated endpoint). Recommended when the model runs on the server host — the “Ollama base URL” above is then ignored.'
+              )}
+            </span>
+          </span>
+        </label>
       </section>
 
       {/* --- Pair a device -------------------------------------------------- */}

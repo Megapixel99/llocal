@@ -1,24 +1,26 @@
 import { Ollama } from 'ollama/browser'
 import { toast } from 'sonner'
 import { t } from './utils'
-import { getOllamaBaseUrl } from '@renderer/platform/config'
+import { getOllamaEndpoint, isRoutingOllamaThroughServer } from '@renderer/platform/config'
 
-// The Ollama client stores its host at construction time, so to support a
-// user-configurable server (a remote IP on mobile, or a custom host on desktop)
-// we build the clients lazily from the current config and rebuild them whenever
-// the configured host changes.
-let cachedHost = ''
+// The Ollama client stores its host (and headers) at construction time, so to
+// support a user-configurable server (a remote IP, or the companion server's
+// token-gated /ollama proxy) we build the clients lazily from the current config
+// and rebuild them whenever the effective endpoint changes.
+let cachedKey = ''
 let _ollama: Ollama | null = null
 let _helperOllama: Ollama | null = null
 
 function ensureClients(): void {
-  const host = getOllamaBaseUrl()
-  if (!_ollama || !_helperOllama || host !== cachedHost) {
-    cachedHost = host
-    _ollama = new Ollama({ host })
+  const { host, headers } = getOllamaEndpoint()
+  // Include the auth header in the cache key so toggling routing rebuilds clients.
+  const key = `${host}|${headers?.Authorization ?? ''}`
+  if (!_ollama || !_helperOllama || key !== cachedKey) {
+    cachedKey = key
+    _ollama = new Ollama({ host, headers })
     // a separate client so that aborting a pull does not abort an on-going chat
     // (or vice-versa); all non-chat calls should use the helper client.
-    _helperOllama = new Ollama({ host })
+    _helperOllama = new Ollama({ host, headers })
   }
 }
 
@@ -57,6 +59,13 @@ async function installOllama(): Promise<void> {
 }
 
 export async function ollamaServe(setIsOllamaInstalled): Promise<void> {
+  // Thin client: the model lives on the companion-server host, so there is no
+  // local Ollama to check/download/install. Treat it as present and skip the
+  // desktop install flow entirely.
+  if (isRoutingOllamaThroughServer()) {
+    setIsOllamaInstalled(true)
+    return
+  }
   const check = await window.api.checkingOllama()
   if (!check) {
     const alreadyDownloaded = await window.api.checkingBinaries()
