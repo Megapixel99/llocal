@@ -29,6 +29,13 @@ export interface RemoteConfig {
   serverBaseUrl: string
   /** Bearer token shared with the companion server. */
   serverToken: string
+  /**
+   * Route model traffic through the companion server's token-gated /ollama proxy
+   * instead of hitting Ollama directly. For a thin client (desktop or phone that
+   * uses the model on the server host), this exposes ONE authenticated endpoint
+   * for both chat sync and inference. Off by default → original direct behavior.
+   */
+  routeOllamaThroughServer: boolean
   git: GitConfig
   /** External MCP (Model Context Protocol) servers whose tools the coding agent can use. */
   mcpServers: McpServer[]
@@ -41,6 +48,7 @@ export const DEFAULT_REMOTE_CONFIG: RemoteConfig = {
   ollamaBaseUrl: 'http://localhost:11434',
   serverBaseUrl: '',
   serverToken: '',
+  routeOllamaThroughServer: false,
   git: {
     provider: 'github',
     token: '',
@@ -77,6 +85,27 @@ export function getRemoteConfig(): RemoteConfig {
 
 export function getOllamaBaseUrl(): string {
   return current.ollamaBaseUrl || DEFAULT_REMOTE_CONFIG.ollamaBaseUrl
+}
+
+/**
+ * The effective Ollama endpoint the client should talk to. When routing through
+ * the companion server, that's its /ollama proxy plus a bearer-token header (the
+ * proxy strips the header before forwarding to Ollama); otherwise it's the direct
+ * Ollama base URL with no auth.
+ */
+export function getOllamaEndpoint(): { host: string; headers?: Record<string, string> } {
+  if (current.routeOllamaThroughServer && current.serverBaseUrl) {
+    return {
+      host: `${current.serverBaseUrl.replace(/\/$/, '')}/ollama`,
+      headers: current.serverToken ? { Authorization: `Bearer ${current.serverToken}` } : undefined
+    }
+  }
+  return { host: getOllamaBaseUrl() }
+}
+
+/** True when inference is routed through the companion server's /ollama proxy. */
+export function isRoutingOllamaThroughServer(): boolean {
+  return !!(current.routeOllamaThroughServer && current.serverBaseUrl)
 }
 
 export function getServerConfig(): { baseUrl: string; token: string } {
