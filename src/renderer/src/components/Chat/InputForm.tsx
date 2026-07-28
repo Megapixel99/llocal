@@ -27,6 +27,7 @@ import { AgentModeSelector } from './AgentModeSelector'
 import { SwarmPanel } from './SwarmPanel'
 import { EffortSelector } from './EffortSelector'
 import { VerbositySelector } from './VerbositySelector'
+import { ModelChip } from './ModelChip'
 import { AgentApproval } from './AgentApproval'
 import { Mascot } from './Mascot'
 import { AutoComplete } from './AutoComplete'
@@ -47,6 +48,14 @@ const FormFieldsSchema = z.object({
 // defining the form type as usual
 type FormFieldsType = {
   prompt?: string
+}
+
+const COMPOSER_MAX_H = 192 // px — cap the auto-grow so a long paste scrolls instead of eating the screen
+
+/** Grow the composer textarea with its content, up to COMPOSER_MAX_H, then scroll. */
+function autoGrow(el: HTMLTextAreaElement): void {
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_H)}px`
 }
 
 export const InputForm = ({ className, ...props }: ComponentProps<'form'>): React.ReactElement => {
@@ -182,6 +191,9 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const onSubmit: SubmitHandler<FormFieldsType> = async (data) => {
     const value = data.prompt || ''
     reset()
+    // Collapse the auto-grown composer back to one line after sending.
+    const ta = document.getElementById('textarea') as HTMLTextAreaElement | null
+    if (ta) ta.style.height = ''
     setAutoCompleteList([])
     setCommandMatches([])
     setSuggestions(pre => ({ ...pre, prompts: [] }))
@@ -238,6 +250,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
       {activeTab === 'agent' && showSwarm && <SwarmPanel className='mb-2' />}
       <div className='flex items-center justify-between gap-3 mb-1 px-2 flex-wrap'>
         <div className='flex items-center gap-3 flex-wrap'>
+          <ModelChip />
           {activeTab === 'agent' && <AgentModeSelector />}
           {activeTab === 'agent' && (
             <button
@@ -305,7 +318,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
       </ToolTip>
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className={twMerge(`relative w-full h-12`, className)}
+        className={twMerge(`relative w-full`, className)}
         {...props}
       >
         <TextArea
@@ -313,17 +326,20 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
           register={register}
           onKeyDown={handleKeyDown}
           onChange={handleChange}
+          onInput={(e) => autoGrow(e.currentTarget)}
           variant={"chat"}
-          className={`h-full w-full pl-10 pr-8 ${fileDrop && "outline-dotted outline-2 opacity-50 hover:opacity-100"}`}
+          // Claude-style: a roomier rounded box that grows with the text (up to a cap), controls
+          // pinned to the bottom-left/right.
+          className={`min-h-[3.25rem] max-h-48 w-full resize-none overflow-y-auto rounded-2xl pl-11 pr-12 py-3.5 leading-relaxed ${fileDrop && "outline-dotted outline-2 opacity-50 hover:opacity-100"}`}
           placeholder={isLoading ? t("Queue a message…") : t("Enter your prompt")}
         />
-        <MoreButton className="text-2xl absolute left-2 top-1/2 transform -translate-y-1/2" />
+        <MoreButton className="text-2xl absolute left-2 bottom-2" />
 
         {isLoading ? <Button
           type="reset"
           variant={'icon'}
           onClick={handleClick}
-          className="text-2xl absolute right-2 top-1/2 transform -translate-y-1/2"
+          className="text-2xl absolute right-2 bottom-2"
         >
           <PiStopCircleBold />
         </Button>
@@ -332,7 +348,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
             type="submit"
             variant={'icon'}
             disabled={isLoading}
-            className="text-2xl absolute right-2 top-1/2 transform -translate-y-1/2"
+            className="text-2xl absolute right-2 bottom-2"
           >
             <PiPaperPlaneRightFill />
           </Button>}
