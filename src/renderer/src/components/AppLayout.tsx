@@ -83,7 +83,9 @@ export const Sidebar = ({
         <button
           onClick={() => setOpen(true)}
           aria-label="Open menu"
-          className="fixed top-3 left-3 z-40 p-2 rounded-xl bg-background/30 backdrop-blur-lg shadow-lg lg:hidden"
+          // Top-right: clear of the macOS window traffic-lights (top-left) in a narrow desktop
+          // window, and clear of the iOS status bar's left side on mobile.
+          className="fixed top-3 right-3 z-40 p-2 rounded-xl bg-background/30 backdrop-blur-lg shadow-lg lg:hidden"
         >
           <IoMenu className="text-2xl" />
         </button>
