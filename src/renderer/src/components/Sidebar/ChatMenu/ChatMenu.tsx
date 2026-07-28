@@ -4,7 +4,7 @@ import { cn } from '@renderer/utils/utils';
 import { ComponentProps, useState } from 'react'
 import { MdDeleteForever } from 'react-icons/md';
 import { TbEdit } from "react-icons/tb";
-import { PiDotsThreeCircle } from "react-icons/pi";
+import { PiDotsThreeCircle, PiCircleFill } from "react-icons/pi";
 import { LuInfo } from "react-icons/lu";
 import { Button } from '@renderer/ui/Button';
 import { useDb } from '@renderer/hooks/useDb';
@@ -22,8 +22,11 @@ interface ChatMenuProps extends ComponentProps<'div'> {
 
 export const ChatMenu = ({ className, date, ...props }: ChatMenuProps) => {
   const [open, setOpen] = useState(false)
-  return <div>
-    <div className={cn(`${open ? "block" : "hidden"} group-hover:block`, className)} {...props}>
+  // stopPropagation so clicking the menu (or its items) doesn't also trigger the chat card's
+  // onClick — that selected the chat and re-rendered the list, closing the menu before it showed.
+  return <div onClick={(e) => e.stopPropagation()}>
+    {/* Dimmed by default, full on hover; always shown on touch (no hover) so it's tappable. */}
+    <div className={cn(`${open ? "opacity-100" : "opacity-50 lg:opacity-0"} group-hover:opacity-100 transition-opacity`, className)} {...props}>
       <Menu.Root onOpenChange={val => {
         // TODO: this is a bandaid fix, the css breaks intermittenly because when we switch from block -> hidden there's a 50-80ms ish
         // delay where because the Trigger itself is not any more in the DOM there is no anchor for the Menu causing it to tweak and absolutely position
@@ -34,13 +37,14 @@ export const ChatMenu = ({ className, date, ...props }: ChatMenuProps) => {
         <Menu.Trigger className="text-center h-full">
           <PiDotsThreeCircle className='text-2xl p-0' />
         </Menu.Trigger>
-        <Menu.Content className={`z-30 h-fit w-fit flex flex-col justify-center items-start gap-2`}>
+        <Menu.Content className={`z-[60] h-fit w-fit flex flex-col justify-center items-start gap-2`}>
           <RenameModal date={date}>
             <Menu.Item onSelect={(e) => e.preventDefault()} className='flex items-center'>
               <TbEdit className='text-2xl' />
               Rename
             </Menu.Item>
           </RenameModal>
+          <MarkUnreadItem date={date} />
           <DeleteModal date={date}>
             <Menu.Item onSelect={(e) => e.preventDefault()} className='flex items-center'>
               <MdDeleteForever className='text-2xl' />
@@ -51,6 +55,17 @@ export const ChatMenu = ({ className, date, ...props }: ChatMenuProps) => {
       </Menu.Root>
     </div>
   </div>
+}
+
+// Direct action (no modal): flag the chat unread so its dot badge returns in the list.
+const MarkUnreadItem = ({ date }: { date: string }): React.ReactElement => {
+  const { markUnread } = useDb()
+  return (
+    <Menu.Item onSelect={() => markUnread(date)} className='flex items-center gap-1'>
+      <PiCircleFill className='text-blue-500' />
+      Mark as unread
+    </Menu.Item>
+  )
 }
 
 interface ChatListModalProps extends ChatMenuProps {
