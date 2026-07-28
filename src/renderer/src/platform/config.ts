@@ -83,6 +83,11 @@ export function getServerConfig(): { baseUrl: string; token: string } {
   return { baseUrl: current.serverBaseUrl, token: current.serverToken }
 }
 
+/** True when a companion server URL is set — the gate for all cross-device sync. */
+export function isServerConfigured(): boolean {
+  return !!current.serverBaseUrl
+}
+
 export function getGitConfig(): GitConfig {
   return current.git
 }
