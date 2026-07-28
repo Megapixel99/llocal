@@ -10,7 +10,11 @@ const config: CapacitorConfig = {
   appName: 'LLocal',
   webDir: 'dist-web',
   ios: {
-    contentInset: 'always'
+    // Draw edge-to-edge (the web layer fills the whole screen incl. the safe areas) instead of
+    // letting WKWebView inset the content — 'always' left black bars top/bottom and, combined with
+    // 100vh, pushed the composer under the home indicator. CSS env(safe-area-inset-*) handles the
+    // notch/home-indicator spacing instead (see index.css / the composer + hamburger).
+    contentInset: 'never'
   }
 }
 

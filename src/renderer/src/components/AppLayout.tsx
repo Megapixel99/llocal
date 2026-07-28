@@ -34,7 +34,7 @@ export const Settings = ({
       {settingsToggle && (
         <div
           className={twMerge(
-            `dark:bg-black dark:bg-opacity-50 bg-foreground bg-opacity-50 absolute z-50 flex flex-col justify-center items-center w-full h-screen backdrop-blur p-5 overflow-y-scroll overflow-x-hidden`,
+            `dark:bg-black dark:bg-opacity-50 bg-foreground bg-opacity-50 absolute z-50 flex flex-col justify-center items-center w-full h-screen backdrop-blur p-5 pt-[calc(1.25rem_+_env(safe-area-inset-top))] pb-[calc(1.25rem_+_env(safe-area-inset-bottom))] overflow-y-scroll overflow-x-hidden`,
             className
           )}
           {...props}
@@ -88,7 +88,7 @@ export const Sidebar = ({
           aria-label="Open menu"
           // Top-right: clear of the macOS window traffic-lights (top-left) in a narrow desktop
           // window, and clear of the iOS status bar's left side on mobile.
-          className="fixed top-3 right-3 z-40 p-2 rounded-xl bg-background/30 backdrop-blur-lg shadow-lg lg:hidden"
+          className="fixed top-[calc(0.75rem_+_env(safe-area-inset-top))] right-3 z-40 p-2 rounded-xl bg-background/30 backdrop-blur-lg shadow-lg lg:hidden"
         >
           <IoMenu className="text-2xl" />
         </button>
@@ -115,7 +115,7 @@ export const Sidebar = ({
       <div className="flex gap-2 items-center justify-center bg-transparent">
         <aside
           className={twMerge(
-            `fixed lg:static top-0 left-0 z-40 h-screen p-5 overflow-hidden transition-all duration-300
+            `fixed lg:static top-0 left-0 z-40 h-screen p-5 pt-[calc(1.25rem_+_env(safe-area-inset-top))] pb-[calc(1.25rem_+_env(safe-area-inset-bottom))] overflow-hidden transition-all duration-300
              w-[82vw] max-w-[300px] lg:max-w-none
              ${open ? 'translate-x-0 lg:w-[250px]' : '-translate-x-full lg:w-0 lg:p-0'}
              lg:translate-x-0`,
@@ -154,7 +154,7 @@ export const Chat = ({
     setFileDrop(val)
   }
   return (
-    <aside onDrop={handleDrop} onDragOver={(e) => handleEvent(e, true)} onDragLeave={(e) => handleEvent(e, false)} className={twMerge('flex-1 overflow-hidden pt-10 pb-6 px-8 lg:pt-8', className)} {...props}>
+    <aside onDrop={handleDrop} onDragOver={(e) => handleEvent(e, true)} onDragLeave={(e) => handleEvent(e, false)} className={twMerge('flex-1 overflow-hidden px-8 pt-[calc(2.5rem_+_env(safe-area-inset-top))] pb-[calc(1.5rem_+_env(safe-area-inset-bottom))] lg:pt-8 lg:pb-6', className)} {...props}>
       {children}
     </aside>
   )
