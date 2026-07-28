@@ -240,9 +240,6 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   //
   return (
     <div className='relative w-full md:max-w-[48rem] flex flex-col'>
-      {/* Little composer companion, perched on the top edge of the input box. */}
-      {/* anchor to the bottom (just above the textarea) so the height of the info rows above doesn't push Lo up */}
-      <Mascot className='absolute right-3 bottom-14 z-10' />
       {commandMatches.length > 0
         ? <CommandPalette className='absolute -bottom-3 transform -translate-y-1/2' commands={commandMatches} onSelectCommand={handleSelectCommand} />
         : (isAutoComplete && autoCompleteList.length > 0) && <AutoComplete className='absolute -bottom-3 transform -translate-y-1/2' list={autoCompleteList} reset={reset} />}
@@ -321,6 +318,8 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
         className={twMerge(`relative w-full`, className)}
         {...props}
       >
+        {/* Lo perches on the composer's top edge and rides it up as the box auto-grows. */}
+        <Mascot className='absolute right-3 bottom-full -mb-4 z-10 pointer-events-none' />
         <TextArea
           name="prompt"
           register={register}
