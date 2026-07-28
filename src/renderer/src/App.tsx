@@ -18,6 +18,7 @@ import { TitleBar } from './components/TitleBar/Titlebar'
 import { Theme, ThemeProvider } from './ui/ThemeProvider'
 import { useChatSync } from './hooks/useChatSync'
 import { useSettingsSync } from './hooks/useSettingsSync'
+import { SyncStatus } from './components/Sidebar/SyncStatus'
 
 function App(): JSX.Element {
   const [platform, setPlatform] = useState("")
@@ -80,6 +81,7 @@ function App(): JSX.Element {
             <ChatList />
           </div>
           <CommandCentre className="" />
+          <SyncStatus className="mt-auto" />
         </Sidebar>
         <Chat className="flex flex-col justify-between items-center">
           <Messages className="" />

@@ -220,7 +220,9 @@ export const ServerSettings = (): React.ReactElement => {
       <section className="flex flex-col gap-3">
         <h2 className="text-lg">{t('Companion server')}</h2>
         <p className="text-xs opacity-60">
-          {t('Runs on the Ollama host for RAG, web search, TTS, Git and commands.')}
+          {t(
+            'Runs on your model host. Both this desktop and your phone connect to it to sync chats and settings, optionally reach the model, and use RAG, web search, TTS, Git and commands.'
+          )}
         </p>
         <Field
           label={t('Server URL')}

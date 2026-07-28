@@ -15,11 +15,22 @@
  * Chats are keyed by their existing ISO-timestamp `date`, matching the server PK,
  * so no id remapping is needed. `:date` contains ':' so it is percent-encoded.
  */
+import { getDefaultStore } from 'jotai'
 import { db } from '@renderer/utils/db'
 import { getServerConfig, isServerConfigured } from './config'
 import { fetchWithTimeout } from './serverClient'
-import type { Message } from '../store/mocks'
+import { syncStatusAtom, type SyncState, type Message } from '../store/mocks'
 import type { MessageMetric } from '../../../shared/analytics'
+
+const store = getDefaultStore()
+
+/** Report sync connectivity to the sidebar indicator. */
+function reportStatus(state: SyncState): void {
+  store.set(syncStatusAtom, (prev) => ({
+    state,
+    lastSyncedAt: state === 'ok' ? Date.now() : prev.lastSyncedAt
+  }))
+}
 
 /** A chat document as stored in the local Localbase cache. */
 export interface LocalChatDoc {
@@ -125,6 +136,7 @@ let syncing = false
 export async function syncChats(onChange?: () => void): Promise<void> {
   if (!isServerConfigured() || syncing) return
   syncing = true
+  reportStatus('syncing')
   try {
     // Snapshot the local cache once — used for existence/version checks below.
     // (Reading per-row would also make Localbase log "not found" for every miss.)
@@ -146,7 +158,8 @@ export async function syncChats(onChange?: () => void): Promise<void> {
     try {
       changes = await chatApi.list(cursor)
     } catch {
-      return // offline
+      reportStatus('offline')
+      return
     }
 
     let maxSeen = cursor
@@ -188,6 +201,7 @@ export async function syncChats(onChange?: () => void): Promise<void> {
 
     if (maxSeen > cursor) localStorage.setItem(CURSOR_KEY, String(maxSeen))
     if (mutated) onChange?.()
+    reportStatus('ok')
   } finally {
     syncing = false
   }
