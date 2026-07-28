@@ -1,6 +1,8 @@
-import { ComponentProps, useRef } from "react";
+import { ComponentProps, useRef, useState } from "react";
 import { useAtomValue } from "jotai";
+import { LuRotateCcw, LuPencil, LuCheck, LuX } from "react-icons/lu";
 import { verbosityAtom } from "@renderer/store/mocks";
+import { useMessageActions } from "@renderer/hooks/useMessageActions";
 import { Card } from "./Card";
 import Markdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
@@ -8,7 +10,7 @@ import remarkGfm from 'remark-gfm'
 import SyntaxHighlighter from 'react-syntax-highlighter'
 import { Code } from "./Code";
 import { Accordion } from "./Accordion";
-import { customTagValidator, formatCustomBlock } from "@renderer/utils/utils";
+import { customTagValidator, formatCustomBlock, t } from "@renderer/utils/utils";
 import { BreadCrumb } from "./BreadCrumb";
 import { BsGlobeCentralSouthAsia } from "react-icons/bs";
 import { Table } from "./Table";
@@ -28,6 +30,7 @@ export const AiMessage = ({ message, stream, index = 0, ...props }: Message): Re
 
   // Reasoning-display preference (display only; the model still generates the same text).
   const verbosity = useAtomValue(verbosityAtom)
+  const { retry } = useMessageActions()
 
   // this is crucial, since during streaming we need to see the custom tag irrespective.
   // the validation, invalidate's it which is technically correct, but UX wise incorrect.
@@ -106,22 +109,87 @@ export const AiMessage = ({ message, stream, index = 0, ...props }: Message): Re
         {message}
       </Markdown>
     </Card >
-    <div className="mx-5 group-hover:animate-fadeIn opacity-0 group-hover:opacity-100 flex gap-2">
+    <div className="mx-5 group-hover:animate-fadeIn opacity-0 group-hover:opacity-100 flex gap-2 items-center">
       <CopyButton className="opacity-75" text={message} />
       <TextToSpeech text={message} />
       <ExportDocument text={message} />
       <Branch index={index} />
+      {/* Regenerate this reply from the preceding prompt. */}
+      <button
+        type="button"
+        onClick={() => retry(index)}
+        title={t('Retry')}
+        className="opacity-60 hover:opacity-100 transition-opacity"
+      >
+        <LuRotateCcw />
+      </button>
     </div>
   </div>
 }
 
-export const UserMessage = ({ message, ...props }: Message): React.ReactElement => {
+export const UserMessage = ({ message, index = 0, ...props }: Message): React.ReactElement => {
+  const { editAndRun } = useMessageActions()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(message)
+
+  if (editing) {
+    return (
+      <div className="group flex w-full max-w-full flex-col gap-2 self-end lg:max-w-[75%]">
+        <Card className="w-full bg-opacity-10 dark:bg-opacity-10">
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={Math.min(8, draft.split('\n').length + 1)}
+            className="w-full resize-y bg-transparent outline-none"
+          />
+        </Card>
+        <div className="flex gap-2 self-end">
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(false)
+              editAndRun(index, draft)
+            }}
+            title={t('Save & submit')}
+            className="flex items-center gap-1 rounded-lg bg-foreground/10 px-2 py-1 text-xs hover:bg-foreground/20 dark:bg-white/10 dark:hover:bg-white/20"
+          >
+            <LuCheck /> {t('Save & submit')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(message)
+              setEditing(false)
+            }}
+            title={t('Cancel')}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs opacity-70 hover:opacity-100"
+          >
+            <LuX /> {t('Cancel')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return <div className="group flex flex-col self-end space-y-2 transition-all">
     <Card className="w-fit bg-opacity-10 whitespace-pre-line dark:bg-opacity-10 " {...props}>
       <p className="break-words">{message}</p>
     </Card>
-    <div className="mx-5 group-hover:animate-fadeIn opacity-0 group-hover:opacity-100 flex gap-2 self-end">
+    <div className="mx-5 group-hover:animate-fadeIn opacity-0 group-hover:opacity-100 flex gap-2 self-end items-center">
       <CopyButton className="opacity-75" text={message} />
+      {/* Edit this prompt and re-run from here. */}
+      <button
+        type="button"
+        onClick={() => {
+          setDraft(message)
+          setEditing(true)
+        }}
+        title={t('Edit')}
+        className="opacity-60 hover:opacity-100 transition-opacity"
+      >
+        <LuPencil />
+      </button>
     </div>
   </div>
 

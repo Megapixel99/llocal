@@ -32,7 +32,7 @@ import { Mascot } from './Mascot'
 import { AutoComplete } from './AutoComplete'
 import { CommandPalette } from './CommandPalette'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { activeTabAtom, agentModeAtom, commandListAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, notificationPrefsAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
+import { activeTabAtom, agentModeAtom, commandListAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, notificationPrefsAtom, regenerateRequestAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
 import ToolTip from '@renderer/ui/ToolTip'
 import { t } from '@renderer/utils/utils'
 import { Command, filterCommands, maybeExpandCommand } from '@renderer/utils/commands'
@@ -71,6 +71,17 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const fileDrop = useAtomValue(fileDropAtom)
   const agentMode = useAtomValue(agentModeAtom)
   const notificationPrefs = useAtomValue(notificationPrefsAtom)
+  const [regenReq, setRegenReq] = useAtom(regenerateRequestAtom)
+
+  // Fulfil an Edit/Retry: a message component sets regenerateRequestAtom with a truncated history;
+  // once nothing is generating, re-run the prompt on that base. InputForm owns promptReq, so the
+  // request routes here rather than each message spawning its own generation hook.
+  useEffect(() => {
+    if (!regenReq || isLoading) return
+    const { prompt, baseChat } = regenReq
+    setRegenReq(null)
+    promptReqRef.current(prompt, baseChat)
+  }, [regenReq, isLoading])
 
   // Send queued messages one at a time as each generation finishes. drainingRef guards against the
   // brief window before isLoading flips back to true after we kick off the next prompt.
