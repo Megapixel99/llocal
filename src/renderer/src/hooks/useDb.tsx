@@ -4,6 +4,8 @@ import type { MessageMetric } from '../../../shared/analytics'
 import { useSetAtom, useStore } from 'jotai'
 import { toast } from 'sonner';
 import { t } from '@renderer/utils/utils';
+import { isServerConfigured } from '@renderer/platform/config'
+import { pushLocalChat, deleteRemoteChat, syncChats } from '@renderer/platform/chatSync'
 
 export interface getDbReturn {
   date: string;
@@ -12,6 +14,10 @@ export interface getDbReturn {
   unread?: boolean;
   /** Per-message analytics for this chat, persisted so they survive reloads / chat switches. */
   metrics?: MessageMetric[];
+  /** Server-clock timestamp of the last-synced version (present once synced). */
+  updatedAt?: number;
+  /** Local edits not yet confirmed pushed to the companion server. */
+  dirty?: boolean;
 }
 
 type useDbReturn = {
@@ -24,6 +30,8 @@ type useDbReturn = {
   markRead: (date: string) => Promise<void>
   markUnread: (date: string) => Promise<void>
   deleteChat: (date: string) => Promise<void>
+  /** Pull the companion server's chat changes into the local cache (no-op if no server). */
+  syncNow: () => Promise<void>
 }
 
 
@@ -42,9 +50,11 @@ export function useDb(): useDbReturn {
     const isoDateString = new Date().toISOString()
     await db
       .collection('chat')
-      .add({ date: isoDateString, title, chat: messages, unread: true, metrics: store.get(sessionMetricsAtom) })
+      // `dirty: true` until pushLocalChat confirms the mirror to the server.
+      .add({ date: isoDateString, title, chat: messages, unread: true, metrics: store.get(sessionMetricsAtom), dirty: true })
       .then((chat) => console.log('AddChat (new): ', chat))
     setSelectedChatIndex(isoDateString)
+    void pushLocalChat(isoDateString) // fire-and-forget mirror; UI never waits on the network
     return isoDateString
   }
 
@@ -62,8 +72,9 @@ export function useDb(): useDbReturn {
       await db
         .collection('chat')
         .doc({ date: selectedChatIndex })
-        .update({ chat: messages, unread: true, metrics: store.get(sessionMetricsAtom) })
+        .update({ chat: messages, unread: true, metrics: store.get(sessionMetricsAtom), dirty: true })
         .then((chat) => console.log('AddChat (update): ', chat))
+      void pushLocalChat(selectedChatIndex)
       return selectedChatIndex
     } catch (error) {
       // The selected doc vanished (e.g. deleted) — fall back to creating a fresh one.
@@ -87,6 +98,10 @@ export function useDb(): useDbReturn {
 
   const deleteChat = async (date: string): Promise<void> => {
     try {
+      // Delete on the server FIRST (a tombstone) so it can't be resurrected by the
+      // next pull. If the server is unreachable we keep the local copy and report it,
+      // rather than deleting locally and having it reappear on sync.
+      await deleteRemoteChat(date)
       await db.collection('chat').doc({ date: date }).delete()
       setSelectedChatIndex("") // this is incredibly important, because chat/chatlist state updates happen based on selectedChatIndex
       toast.success(t('The chat has been deleted'))
@@ -96,8 +111,12 @@ export function useDb(): useDbReturn {
   }
 
   const getMessageList = async (): Promise<getDbReturn[]> => {
-    const response = await db.collection('chat').orderBy('date').get()
-    return response.reverse()
+    const response: getDbReturn[] = await db.collection('chat').orderBy('date').get()
+    // Dedupe by `date` (the stable key) so the list can never render two cards with
+    // the same React key — a defensive guard against any stray duplicate rows.
+    const byDate = new Map<string, getDbReturn>()
+    for (const doc of response) byDate.set(doc.date, doc)
+    return [...byDate.values()].reverse()
   }
 
   const updateDate = async (date: string): Promise<string> => {
@@ -109,7 +128,8 @@ export function useDb(): useDbReturn {
 
   const updateTitle = async (date: string, title: string): Promise<void> => {
     try {
-      await db.collection('chat').doc({ date: date }).update({ title: title })
+      await db.collection('chat').doc({ date: date }).update({ title: title, dirty: true })
+      void pushLocalChat(date)
       // TODO: honestly, I'm unsure if there's a better way to do the state update here
       setTitleUpdate(new Date().getTime())
     } catch (error) {
@@ -120,7 +140,8 @@ export function useDb(): useDbReturn {
   // Clears the unread flag when the user opens a chat; bumps titleUpdate so ChatList re-fetches.
   const markRead = async (date: string): Promise<void> => {
     try {
-      await db.collection('chat').doc({ date: date }).update({ unread: false })
+      await db.collection('chat').doc({ date: date }).update({ unread: false, dirty: true })
+      void pushLocalChat(date)
       setTitleUpdate(new Date().getTime())
     } catch (error) {
       console.error(error)
@@ -130,12 +151,20 @@ export function useDb(): useDbReturn {
   // Flag a chat unread again (from the chat menu); bumps titleUpdate so the badge re-renders.
   const markUnread = async (date: string): Promise<void> => {
     try {
-      await db.collection('chat').doc({ date: date }).update({ unread: true })
+      await db.collection('chat').doc({ date: date }).update({ unread: true, dirty: true })
+      void pushLocalChat(date)
       setTitleUpdate(new Date().getTime())
     } catch (error) {
       console.error(error)
     }
   }
 
-  return { addChat, getMessageList, getChat, getMetrics, updateDate, updateTitle, markRead, markUnread, deleteChat }
+  // Pull the companion server's chat changes into the local cache, then refresh the
+  // list (bump titleUpdate) if anything changed. No-op when no server is configured.
+  const syncNow = async (): Promise<void> => {
+    if (!isServerConfigured()) return
+    await syncChats(() => setTitleUpdate(new Date().getTime()))
+  }
+
+  return { addChat, getMessageList, getChat, getMetrics, updateDate, updateTitle, markRead, markUnread, deleteChat, syncNow }
 }
