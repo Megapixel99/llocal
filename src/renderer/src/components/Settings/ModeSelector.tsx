@@ -28,7 +28,7 @@ export const ModeSelector = (): React.ReactElement => {
   return (
     <div className="flex flex-col gap-2 justify-center">
       <h1 className="font-thin">{t("Mode Selector :")}</h1>
-      <div className="relative">
+      <div className="relative w-full max-w-[24rem]">
         <Dropdown
           onChange={handleSelection}
           defaultValue={theme}

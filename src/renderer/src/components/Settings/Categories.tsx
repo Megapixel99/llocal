@@ -21,7 +21,7 @@ export const Categories = (): React.ReactElement => {
   const map = new Map() // this is to store the component in key value pairs
   map.set(
     'settings',
-    <div className="flex flex-col gap-10 lg:flex-row lg:gap-24 h-full">
+    <div className="flex flex-col gap-10 md:flex-row md:gap-12 lg:gap-24 h-full">
       <ModelConfiguration className="flex flex-col gap-5">
         <ChooseModel />
         <PullModel />
@@ -44,7 +44,7 @@ export const Categories = (): React.ReactElement => {
   map.set('mcp', <McpServers />)
   // map.set('experimental', <Preferences />)
   return (
-    <div className="w-full max-w-[92vw] lg:w-auto lg:max-w-none flex flex-col gap-6">
+    <div className="w-full max-w-[92vw] md:w-auto md:max-w-none flex flex-col gap-6">
       <Navbar className='sticky'>
         <NavbarItem className={`${selected == 'settings' && 'opacity-100'}`} onClick={() => setSelected('settings')}>{t("Settings")}</NavbarItem>
         <NavbarItem className={`${selected == 'knowledgeBase' && 'opacity-100'}`} onClick={() => setSelected('knowledgeBase')}>{t("Knowledge Base")}</NavbarItem>

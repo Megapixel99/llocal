@@ -39,7 +39,8 @@ export const Settings = ({
           )}
           {...props}
         >
-          <div className=" sticky top-5 left-5 w-full  ">
+          {/* Normal top row (not sticky) so it doesn't collide with the sticky tab bar below it. */}
+          <div className="w-full max-w-[92vw] lg:max-w-none">
             <div
               onClick={handleClick}
               className="flex opacity-50 gap-1 cursor-pointer hover:opacity-100 transition-all w-fit"
