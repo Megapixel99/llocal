@@ -12,9 +12,37 @@ function base(): { baseUrl: string; token: string } {
   return cfg
 }
 
+const DEFAULT_TIMEOUT_MS = 8000
+
+/**
+ * fetch() with a hard timeout. Without this, an unreachable host/port where packets are silently
+ * dropped (a firewall, or a public IP with no port-forward) leaves the request hanging forever — so
+ * the "Test server" button would show neither success nor error. On timeout we throw a clear message.
+ */
+export async function fetchWithTimeout(
+  url: string,
+  init: RequestInit = {},
+  timeoutMs = DEFAULT_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(
+        `timed out after ${timeoutMs / 1000}s — check the URL/port and that the server is reachable from this device`
+      )
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   const { baseUrl, token } = base()
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}${path}`, {
+  const res = await fetchWithTimeout(`${baseUrl.replace(/\/$/, '')}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -36,7 +64,7 @@ export interface HealthResponse {
 
 /** Health check against an explicit URL/token (used by the settings "Test" button). */
 export async function pingServer(baseUrl: string, token: string): Promise<HealthResponse> {
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/health`, {
+  const res = await fetchWithTimeout(`${baseUrl.replace(/\/$/, '')}/health`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {}
   })
   if (!res.ok) throw new Error(`Server responded ${res.status}`)
@@ -67,7 +95,7 @@ export async function fetchPairing(
   rotate = false
 ): Promise<PairingResponse> {
   const url = `${baseUrl.replace(/\/$/, '')}/pairing${rotate ? '/rotate' : ''}`
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method: rotate ? 'POST' : 'GET',
     headers: token ? { Authorization: `Bearer ${token}` } : {}
   })
@@ -79,7 +107,7 @@ export async function fetchPairing(
 
 /** Reachability check for an Ollama server (used by the settings "Test" button). */
 export async function pingOllama(baseUrl: string): Promise<string[]> {
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tags`)
+  const res = await fetchWithTimeout(`${baseUrl.replace(/\/$/, '')}/api/tags`)
   if (!res.ok) throw new Error(`Ollama responded ${res.status}`)
   const data = (await res.json()) as { models?: { name: string }[] }
   return (data.models ?? []).map((m) => m.name)
