@@ -1,4 +1,5 @@
 import { Chat, RootLayout, Settings, Sidebar } from './components/AppLayout'
+import { ArtifactPanel } from './components/Chat/ArtifactPanel'
 import { InputForm } from './components/Chat/InputForm'
 import { Messages } from './components/Chat/Messages'
 import { ChatList } from './components/Sidebar/ChatList'
@@ -77,6 +78,7 @@ function App(): JSX.Element {
           <Messages className="" />
           <InputForm className="justify-self-end" />
         </Chat>
+        <ArtifactPanel />
       </RootLayout >
     </ThemeProvider>
   )

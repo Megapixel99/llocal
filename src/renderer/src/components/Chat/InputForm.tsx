@@ -27,12 +27,13 @@ import { AgentModeSelector } from './AgentModeSelector'
 import { SwarmPanel } from './SwarmPanel'
 import { EffortSelector } from './EffortSelector'
 import { VerbositySelector } from './VerbositySelector'
+import { ModelChip } from './ModelChip'
 import { AgentApproval } from './AgentApproval'
 import { Mascot } from './Mascot'
 import { AutoComplete } from './AutoComplete'
 import { CommandPalette } from './CommandPalette'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { activeTabAtom, agentModeAtom, commandListAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, notificationPrefsAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
+import { activeTabAtom, agentModeAtom, commandListAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, notificationPrefsAtom, regenerateRequestAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
 import ToolTip from '@renderer/ui/ToolTip'
 import { t } from '@renderer/utils/utils'
 import { Command, filterCommands, maybeExpandCommand } from '@renderer/utils/commands'
@@ -47,6 +48,14 @@ const FormFieldsSchema = z.object({
 // defining the form type as usual
 type FormFieldsType = {
   prompt?: string
+}
+
+const COMPOSER_MAX_H = 192 // px — cap the auto-grow so a long paste scrolls instead of eating the screen
+
+/** Grow the composer textarea with its content, up to COMPOSER_MAX_H, then scroll. */
+function autoGrow(el: HTMLTextAreaElement): void {
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_H)}px`
 }
 
 export const InputForm = ({ className, ...props }: ComponentProps<'form'>): React.ReactElement => {
@@ -71,6 +80,17 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const fileDrop = useAtomValue(fileDropAtom)
   const agentMode = useAtomValue(agentModeAtom)
   const notificationPrefs = useAtomValue(notificationPrefsAtom)
+  const [regenReq, setRegenReq] = useAtom(regenerateRequestAtom)
+
+  // Fulfil an Edit/Retry: a message component sets regenerateRequestAtom with a truncated history;
+  // once nothing is generating, re-run the prompt on that base. InputForm owns promptReq, so the
+  // request routes here rather than each message spawning its own generation hook.
+  useEffect(() => {
+    if (!regenReq || isLoading) return
+    const { prompt, baseChat } = regenReq
+    setRegenReq(null)
+    promptReqRef.current(prompt, baseChat)
+  }, [regenReq, isLoading])
 
   // Send queued messages one at a time as each generation finishes. drainingRef guards against the
   // brief window before isLoading flips back to true after we kick off the next prompt.
@@ -171,6 +191,9 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const onSubmit: SubmitHandler<FormFieldsType> = async (data) => {
     const value = data.prompt || ''
     reset()
+    // Collapse the auto-grown composer back to one line after sending.
+    const ta = document.getElementById('textarea') as HTMLTextAreaElement | null
+    if (ta) ta.style.height = ''
     setAutoCompleteList([])
     setCommandMatches([])
     setSuggestions(pre => ({ ...pre, prompts: [] }))
@@ -217,9 +240,6 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   //
   return (
     <div className='relative w-full md:max-w-[48rem] flex flex-col'>
-      {/* Little composer companion, perched on the top edge of the input box. */}
-      {/* anchor to the bottom (just above the textarea) so the height of the info rows above doesn't push Lo up */}
-      <Mascot className='absolute right-3 bottom-14 z-10' />
       {commandMatches.length > 0
         ? <CommandPalette className='absolute -bottom-3 transform -translate-y-1/2' commands={commandMatches} onSelectCommand={handleSelectCommand} />
         : (isAutoComplete && autoCompleteList.length > 0) && <AutoComplete className='absolute -bottom-3 transform -translate-y-1/2' list={autoCompleteList} reset={reset} />}
@@ -227,6 +247,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
       {activeTab === 'agent' && showSwarm && <SwarmPanel className='mb-2' />}
       <div className='flex items-center justify-between gap-3 mb-1 px-2 flex-wrap'>
         <div className='flex items-center gap-3 flex-wrap'>
+          <ModelChip />
           {activeTab === 'agent' && <AgentModeSelector />}
           {activeTab === 'agent' && (
             <button
@@ -294,25 +315,30 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
       </ToolTip>
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className={twMerge(`relative w-full h-12`, className)}
+        className={twMerge(`relative w-full`, className)}
         {...props}
       >
+        {/* Lo perches on the composer's top edge and rides it up as the box auto-grows. */}
+        <Mascot className='absolute right-3 bottom-full -mb-4 z-10 pointer-events-none' />
         <TextArea
           name="prompt"
           register={register}
           onKeyDown={handleKeyDown}
           onChange={handleChange}
+          onInput={(e) => autoGrow(e.currentTarget)}
           variant={"chat"}
-          className={`h-full w-full pl-10 pr-8 ${fileDrop && "outline-dotted outline-2 opacity-50 hover:opacity-100"}`}
+          // Claude-style: a roomier rounded box that grows with the text (up to a cap), controls
+          // pinned to the bottom-left/right.
+          className={`min-h-[3.25rem] max-h-48 w-full resize-none overflow-y-auto rounded-2xl pl-11 pr-12 py-3.5 leading-relaxed ${fileDrop && "outline-dotted outline-2 opacity-50 hover:opacity-100"}`}
           placeholder={isLoading ? t("Queue a message…") : t("Enter your prompt")}
         />
-        <MoreButton className="text-2xl absolute left-2 top-1/2 transform -translate-y-1/2" />
+        <MoreButton className="text-2xl absolute left-2 bottom-2" />
 
         {isLoading ? <Button
           type="reset"
           variant={'icon'}
           onClick={handleClick}
-          className="text-2xl absolute right-2 top-1/2 transform -translate-y-1/2"
+          className="text-2xl absolute right-2 bottom-2"
         >
           <PiStopCircleBold />
         </Button>
@@ -321,7 +347,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
             type="submit"
             variant={'icon'}
             disabled={isLoading}
-            className="text-2xl absolute right-2 top-1/2 transform -translate-y-1/2"
+            className="text-2xl absolute right-2 bottom-2"
           >
             <PiPaperPlaneRightFill />
           </Button>}

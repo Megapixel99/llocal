@@ -3,6 +3,7 @@ import {
   agentApprovalAtom,
   agentModeAtom,
   chatAtom,
+  type Message,
   contextUsageAtom,
   effortAtom,
   experimentalSearchAtom,
@@ -57,7 +58,7 @@ function extractContextLength(info: { model_info?: Map<string, unknown> | Record
 
 
 
-export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
+export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) => Promise<void>] {
   // Defining states
   const [isLoading, setLoading] = useState(false)
   const [chat, setChat] = useAtom(chatAtom)
@@ -131,7 +132,9 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
     }
   }, [modelName])
 
-  const promptReq = async (prompt: string): Promise<void> => {
+  // `baseChat` overrides the prior conversation this turn builds on. Normally undefined (continue the
+  // current chat), but Edit/Retry pass a TRUNCATED history so the turn re-runs from an earlier point.
+  const promptReq = async (prompt: string, baseChat?: Message[]): Promise<void> => {
     setLoading(true)
     setGenerating(true)
     setMascotPhase(null) // reset; streaming below sets reading/responding as it goes
@@ -139,6 +142,8 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
     stopGeneratingRef.current = false
     // Capture a single client for this request so chat + abort target the same instance.
     const ollama = getOllama()
+    // The history this turn extends. When editing/retrying, it's the truncated chat passed in.
+    const base = baseChat ?? chat
     try {
       let user: userContentType = { role: 'user', content: prompt }
       const initialUser = user
@@ -149,6 +154,8 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
         user = { images: [imageAttatchment], ...user }
       }
 
+      // Truncate to the override first (Edit/Retry), then append the user turn onto it.
+      if (baseChat) setChat(baseChat)
       setChat((preValue) => [...preValue, user])
 
       // Persist immediately so the chat shows up in "Your chats" the moment you hit send — waiting
@@ -156,7 +163,7 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
       // Records the chat's date so the abort-on-switch effect doesn't cancel this run when the new
       // chat becomes selected. The reply is saved into this same doc when it lands.
       try {
-        activeRequestChatDateRef.current = await addChat([...chat, initialUser])
+        activeRequestChatDateRef.current = await addChat([...base, initialUser])
       } catch (error) {
         console.error('Failed to persist chat on send', error)
       }
@@ -208,7 +215,7 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
             model: modelName,
             root: workingFolder,
             mode: agentMode,
-            messages: [...chat, { role: 'user', content: prompt }],
+            messages: [...base, { role: 'user', content: prompt }],
             tools: mergedTools,
             mutating: mutatingSet,
             mcpServers,
@@ -233,7 +240,7 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
           })
           if (transcript.trim().length > 0) {
             const ai = { role: 'assistant', content: transcript }
-            addChat([...chat, initialUser, ai])
+            addChat([...base, initialUser, ai])
             setChat((preValue) => [...preValue, ai])
           }
         } catch (error) {
@@ -259,13 +266,13 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
           try {
             const composed = await runReasoning({
               model: modelName,
-              messages: [...chat, initialUser],
+              messages: [...base, initialUser],
               onProgress: (t) => setStream(t),
               shouldStop: () => stopGeneratingRef.current,
               onPhase: setMascotPhase
             })
             const ai = { role: 'assistant', content: composed }
-            addChat([...chat, initialUser, ai])
+            addChat([...base, initialUser, ai])
             setChat((preValue) => [...preValue, ai])
           } catch (error) {
             toast(`${error}`)
@@ -292,7 +299,7 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
               role: 'assistant',
               content: researchSources ? content + '\n' + researchSources : content
             }
-            addChat([...chat, initialUser, ai])
+            addChat([...base, initialUser, ai])
             setChat((preValue) => [...preValue, ai])
           } catch (error) {
             toast(`${error}`)
@@ -344,7 +351,7 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
       // Other way is to use axios, but could not figure out native streaming handling.
       // From what I could gather, axios does not use fetch in the background to make calls
 
-      // const req = { model: modelName, messages: [...chat, user], stream: true }
+      // const req = { model: modelName, messages: [...base, user], stream: true }
       // const response = await axios.post('http://localhost:11434/api/chat', JSON.stringify(req), {
       //   responseType: 'stream'
       // })
@@ -356,14 +363,14 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
       try {
         response = await ollama.chat({
           model: modelName,
-          messages: [...chat, user],
+          messages: [...base, user],
           stream: true,
           think: true
         })
       } catch {
         response = await ollama.chat({
           model: modelName,
-          messages: [...chat, user],
+          messages: [...base, user],
           stream: true
         })
       }
@@ -420,7 +427,7 @@ export function usePrompt(): [boolean, (prompt: string) => Promise<void>] {
       const display = composeAssistantMessage(thinking || parsed.thinking, parsed.content)
       if (display.trim().length > 0) {
         const content = sources ? display + '\n' + sources : display
-        addChat([...chat, initialUser, { role: 'assistant', content }])
+        addChat([...base, initialUser, { role: 'assistant', content }])
         setChat((preValue) => [...preValue, { role: 'assistant', content }])
       }
       setStream('')
