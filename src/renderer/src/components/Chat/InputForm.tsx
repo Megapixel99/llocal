@@ -241,8 +241,8 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   return (
     <div className='relative w-full md:max-w-[48rem] flex flex-col'>
       {commandMatches.length > 0
-        ? <CommandPalette className='absolute -bottom-3 transform -translate-y-1/2' commands={commandMatches} onSelectCommand={handleSelectCommand} />
-        : (isAutoComplete && autoCompleteList.length > 0) && <AutoComplete className='absolute -bottom-3 transform -translate-y-1/2' list={autoCompleteList} reset={reset} />}
+        ? <CommandPalette className='absolute bottom-full left-0 mb-2 z-30 bg-opacity-95 dark:bg-opacity-95 shadow-2xl' commands={commandMatches} onSelectCommand={handleSelectCommand} />
+        : (isAutoComplete && autoCompleteList.length > 0) && <AutoComplete className='absolute bottom-full left-0 mb-2 z-30 bg-opacity-95 dark:bg-opacity-95 shadow-2xl' list={autoCompleteList} reset={reset} />}
       <AgentApproval />
       {activeTab === 'agent' && showSwarm && <SwarmPanel className='mb-2' />}
       <div className='flex items-center justify-between gap-3 mb-1 px-2 flex-wrap'>
@@ -281,8 +281,8 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
             </button>
           )}
         </div>
-        {/* pr-14 reserves the bottom-right corner for the mascot (Lo) so it doesn't cover the meter */}
-        <div className='flex items-center gap-2 pr-14'>
+        {/* Right padding reserves the corner for the mascot (Lo) so it isn't crowded by the meter/analytics */}
+        <div className='flex items-center gap-2 pr-20'>
           {queue.length > 0 && (
             <button
               type="button"
