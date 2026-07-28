@@ -30,7 +30,7 @@ export const ChooseLanguage = ({ className, ...props }: ComponentProps<'div'>): 
   return (
     <div className={twMerge('flex flex-col gap-2 justify-center ', className)} {...props}>
       <h1 className="font-thin">{t('Choose Language :')}</h1>
-      <div className="relative">
+      <div className="relative w-full max-w-[24rem]">
         <Dropdown defaultValue={language} onChange={handleChange} className="w-full max-w-[24rem]">
           {list &&
             list.map((val, index) => {

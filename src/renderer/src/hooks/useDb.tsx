@@ -1,5 +1,6 @@
 import { db } from '@renderer/utils/db'
-import { Message, selectedChatIndexAtom, titleUpdateAtom } from '../store/mocks'
+import { Message, selectedChatIndexAtom, sessionMetricsAtom, titleUpdateAtom } from '../store/mocks'
+import type { MessageMetric } from '../../../shared/analytics'
 import { useSetAtom, useStore } from 'jotai'
 import { toast } from 'sonner';
 import { t } from '@renderer/utils/utils';
@@ -9,12 +10,15 @@ export interface getDbReturn {
   title: string;
   chat: Message[];
   unread?: boolean;
+  /** Per-message analytics for this chat, persisted so they survive reloads / chat switches. */
+  metrics?: MessageMetric[];
 }
 
 type useDbReturn = {
   addChat: (messages: Message[], force?: boolean) => Promise<string>
   getMessageList: () => Promise<getDbReturn[]>
   getChat: (date?: string) => Promise<Message[]>
+  getMetrics: (date?: string) => Promise<MessageMetric[]>
   updateDate: (date: string) => Promise<string>
   updateTitle: (date: string, title: string) => Promise<void>
   markRead: (date: string) => Promise<void>
@@ -37,7 +41,7 @@ export function useDb(): useDbReturn {
     const isoDateString = new Date().toISOString()
     await db
       .collection('chat')
-      .add({ date: isoDateString, title, chat: messages, unread: true })
+      .add({ date: isoDateString, title, chat: messages, unread: true, metrics: store.get(sessionMetricsAtom) })
       .then((chat) => console.log('AddChat (new): ', chat))
     setSelectedChatIndex(isoDateString)
     return isoDateString
@@ -57,7 +61,7 @@ export function useDb(): useDbReturn {
       await db
         .collection('chat')
         .doc({ date: selectedChatIndex })
-        .update({ chat: messages, unread: true })
+        .update({ chat: messages, unread: true, metrics: store.get(sessionMetricsAtom) })
         .then((chat) => console.log('AddChat (update): ', chat))
       return selectedChatIndex
     } catch (error) {
@@ -69,6 +73,15 @@ export function useDb(): useDbReturn {
   const getChat = async (date = ""): Promise<Message[]> => {
     const response: getDbReturn = await db.collection('chat').doc({ date: date || store.get(selectedChatIndexAtom) }).get()
     return response.chat
+  }
+
+  // Load a chat's saved per-message analytics (empty for older chats saved before metrics existed).
+  const getMetrics = async (date = ""): Promise<MessageMetric[]> => {
+    const response: getDbReturn = await db
+      .collection('chat')
+      .doc({ date: date || store.get(selectedChatIndexAtom) })
+      .get()
+    return response?.metrics ?? []
   }
 
   const deleteChat = async (date: string): Promise<void> => {
@@ -113,5 +126,5 @@ export function useDb(): useDbReturn {
     }
   }
 
-  return { addChat, getMessageList, getChat, updateDate, updateTitle, markRead, deleteChat }
+  return { addChat, getMessageList, getChat, getMetrics, updateDate, updateTitle, markRead, deleteChat }
 }

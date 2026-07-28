@@ -54,7 +54,7 @@ export const PullModel = ({ className, ...props }: ComponentProps<'form'>): Reac
       </div>
       <form
         onSubmit={handleSubmit(onSubmit)} // don't quite understand the type error here
-        className={twMerge('relative h-full', className)}
+        className={twMerge('relative h-full w-full max-w-[24rem]', className)}
         {...props}
       >
         <Input
