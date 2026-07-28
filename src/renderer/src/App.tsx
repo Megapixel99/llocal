@@ -69,9 +69,7 @@ function App(): JSX.Element {
           <NewChat />
           <Separator />
           <h1 className="">Your chats</h1>
-          {/* mr on mobile shrinks the list so its scrollbar sits left of the drawer-close handle
-              (padding wouldn't move the scrollbar — it stays at the element's edge). */}
-          <div className="h-3/4 overflow-y-auto mr-8 lg:mr-0">
+          <div className="h-3/4 overflow-y-auto">
             <ChatList />
           </div>
           <CommandCentre className="" />

@@ -98,6 +98,18 @@ export const Sidebar = ({
           className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
         />
       )}
+      {/* Close tab (mobile) — sits just OUTSIDE the drawer's right edge (over the backdrop) so it
+          never covers the chat list or its scrollbar. Positioned at the drawer's width. */}
+      {open && (
+        <button
+          onClick={() => setOpen(false)}
+          aria-label="Close menu"
+          style={{ left: 'min(82vw, 300px)' }}
+          className="lg:hidden fixed top-1/2 z-50 -translate-y-1/2 rounded-r-xl bg-background/70 p-1 pl-0.5 backdrop-blur shadow-lg opacity-90 hover:opacity-100"
+        >
+          <IoIosArrowBack className="text-2xl" />
+        </button>
+      )}
       <div className="flex gap-2 items-center justify-center bg-transparent">
         <aside
           className={twMerge(
@@ -109,15 +121,6 @@ export const Sidebar = ({
           )}
           {...props}
         >
-          {/* Close affordance — a collapse handle on the drawer's right edge (mobile only), kept
-              clear of the Chat/Code tabs at the top. */}
-          <button
-            onClick={() => setOpen(false)}
-            aria-label="Close menu"
-            className="lg:hidden absolute top-1/2 right-0 -translate-y-1/2 z-10 rounded-full bg-foreground/10 dark:bg-background/40 p-1 backdrop-blur opacity-70 hover:opacity-100"
-          >
-            <IoIosArrowBack className="text-2xl" />
-          </button>
           {children}
         </aside>
         {/* Desktop collapse toggle. */}
