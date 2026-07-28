@@ -7,7 +7,7 @@ import { t } from '@renderer/utils/utils'
 import { remoteConfigAtom } from '@renderer/platform/config'
 import { rebuildOllamaClients } from '@renderer/utils/ollama'
 import { pingOllama, pingServer, fetchPairing, type PairingResponse } from '@renderer/platform/serverClient'
-import { parsePairingPayload } from '../../../../shared/pairing'
+import { parsePairingPayload, encodePairingPayload, PAIRING_VERSION } from '../../../../shared/pairing'
 import { isElectron } from '@renderer/platform/detect'
 import { QrCode } from '@renderer/ui/QrCode'
 import { QrScanner } from './QrScanner'
@@ -115,29 +115,72 @@ export const ServerSettings = (): React.ReactElement => {
     }
   }
 
-  /** Ask the server for its current pairing payload, or rotate the token first. */
+  /** Build a pairing payload locally from the configured URL + token — no server round-trip. */
+  function localPairing(serverUrl: string, token: string): PairingResponse {
+    return {
+      payload: encodePairingPayload({ serverUrl, token, version: PAIRING_VERSION }),
+      serverUrl,
+      candidateUrls: [],
+      hosts: [],
+      port: 0,
+      version: PAIRING_VERSION,
+      execEnabled: false
+    }
+  }
+
+  /**
+   * Show a pairing QR (or rotate the token first).
+   *
+   * The QR is generated LOCALLY from the URL + token already in the form, so a scannable
+   * code appears immediately — even on the desktop, which needn't reach its own companion
+   * server. When the server IS reachable we then swap in its richer payload (LAN candidate
+   * URLs, /exec warning). Rotation truly needs the server, since it mints the new token there.
+   */
   async function loadPairing(rotate: boolean): Promise<void> {
     if (!form.serverBaseUrl) {
       toast.info(t('Enter a companion server URL first'))
       return
     }
+    if (!form.serverToken) {
+      toast.info(t('Enter a server token first'))
+      return
+    }
     setPairingBusy(true)
     try {
-      const res = await fetchPairing(form.serverBaseUrl, form.serverToken, rotate)
-      setPairing(res)
-      // A rotated token invalidates the old one — persist the new token (and the
-      // server-reported URL) immediately so this app stays connected.
-      if (rotate) {
-        const next = { serverBaseUrl: res.serverUrl, serverToken: parsePairingPayload(res.payload).token }
-        update(next)
-        setConfig(next)
-        rebuildOllamaClients()
-        toast.success(t('Token rotated and saved'))
-      } else {
-        toast.success(t('Pairing code ready'))
+      // Instant local QR (skipped for rotate — the payload's token must come from the server).
+      if (!rotate) {
+        try {
+          setPairing(localPairing(form.serverBaseUrl, form.serverToken))
+        } catch (e) {
+          // Bad URL/token — encodePairingPayload validates; surface it and stop.
+          toast.error(`${t('Invalid pairing code')}: ${e}`)
+          return
+        }
       }
-    } catch (e) {
-      toast.error(`${t('Could not reach server')}: ${e}`)
+      // Enrich from the server when reachable (LAN candidate URLs, exec warning, rotated token).
+      try {
+        const res = await fetchPairing(form.serverBaseUrl, form.serverToken, rotate)
+        setPairing(res)
+        // A rotated token invalidates the old one — persist the new token (and the
+        // server-reported URL) immediately so this app stays connected.
+        if (rotate) {
+          const next = { serverBaseUrl: res.serverUrl, serverToken: parsePairingPayload(res.payload).token }
+          update(next)
+          setConfig(next)
+          rebuildOllamaClients()
+          toast.success(t('Token rotated and saved'))
+        } else {
+          toast.success(t('Pairing code ready'))
+        }
+      } catch (e) {
+        if (rotate) {
+          // Nothing to fall back on — rotation requires the server.
+          toast.error(`${t('Could not reach server')}: ${e}`)
+        } else {
+          // The local QR is already showing; pairing still works, just without LAN hints.
+          toast.success(t('Pairing code ready (using the URL you entered — server offline)'))
+        }
+      }
     } finally {
       setPairingBusy(false)
     }
