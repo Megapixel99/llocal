@@ -16,6 +16,7 @@ import {
   prefModelAtom,
   customInstructionsAtom,
   responseStyleAtom,
+  attachedDocAtom,
   sessionMetricsAtom,
   stopGeneratingAtom,
   streamingAtom,
@@ -87,6 +88,7 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
   const selectedChatIndex = useAtomValue(selectedChatIndexAtom)
   const customInstructions = useAtomValue(customInstructionsAtom) // user persona/preferences
   const responseStyle = useAtomValue(responseStyleAtom) // response-style preset
+  const [attachedDoc, setAttachedDoc] = useAtom(attachedDocAtom) // in-chat document attachment
   const firstChatRender = useRef(true)
   // The chat the in-flight request belongs to. Persisting a brand-new chat on send flips
   // selectedChatIndex, which would otherwise trip the abort-on-switch effect below and cancel the
@@ -152,6 +154,13 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
     // Custom instructions + response style → a system prompt for this turn ('' when unset). Injected
     // into the model call only; never stored in `base`/`chat`, so it isn't shown or persisted.
     const systemInstructions = buildSystemInstructions(customInstructions, responseStyle)
+    // In-chat document: fold the extracted text into the SENT message only (not the
+    // displayed/stored turn, which stays the plain prompt). Consumed for this turn.
+    const docPrefix = attachedDoc
+      ? `The user attached a document "${attachedDoc.name}". Use its contents to answer.\n"""\n${attachedDoc.text}\n"""\n\n`
+      : ''
+    if (attachedDoc) setAttachedDoc(null)
+    const withDoc = (text: string): string => docPrefix + text
     try {
       let user: userContentType = { role: 'user', content: prompt }
       const initialUser = user
@@ -274,7 +283,7 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
           try {
             const composed = await runReasoning({
               model: modelName,
-              messages: [...base, initialUser],
+              messages: [...base, docPrefix ? { ...initialUser, content: withDoc(initialUser.content) } : initialUser],
               instructions: systemInstructions,
               onProgress: (t) => setStream(t),
               shouldStop: () => stopGeneratingRef.current,
@@ -298,7 +307,7 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
           try {
             const { content, sources: researchSources } = await runDeepResearch({
               model: modelName,
-              prompt,
+              prompt: withDoc(prompt),
               effort,
               instructions: systemInstructions,
               onProgress: (t) => setStream(t),
@@ -369,10 +378,12 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
       // Reasoning models (gpt-oss / harmony format) can route their reasoning into Ollama's separate
       // `message.thinking` field via the `think` option, instead of leaking raw <|channel|> tokens into
       // the content. Not every model accepts the option, so we fall back to a plain request if it's rejected.
-      // Prepend the custom-instructions/style system prompt for this turn (if any).
+      // Prepend the custom-instructions/style system prompt for this turn (if any),
+      // and fold any attached document into the (sent-only) user message.
+      const sentUser = docPrefix ? { ...user, content: withDoc(user.content) } : user
       const chatMessages = systemInstructions
-        ? [{ role: 'system', content: systemInstructions }, ...base, user]
-        : [...base, user]
+        ? [{ role: 'system', content: systemInstructions }, ...base, sentUser]
+        : [...base, sentUser]
       let response
       try {
         response = await ollama.chat({

@@ -53,6 +53,9 @@ export const stopGeneratingAtom = atom<boolean>(false) // Handling the option to
 export const imageAttatchmentAtom = atom<string>('') // Storing the base64 image
 export const experimentalSearchAtom = atom<boolean>(false) // Toggle for websearch
 export const fileContextAtom = atom<fileContext[]>([]) // For storing the current file for RAG
+// In-chat document attachment (distinct from RAG): extracted text dropped into the next turn's
+// context. In-memory + per-turn — cleared after the message is sent.
+export const attachedDocAtom = atom<{ name: string; text: string } | null>(null)
 export const workingFolderAtom = atomWithStorage<string>('workingFolder', '') // Chosen working folder (like a project dir); persisted, enables git features when it's a repo
 export type appTab = 'chat' | 'agent' // left-sidebar tabs: plain chat vs the coding agent
 export const activeTabAtom = atomWithStorage<appTab>('activeTab', 'chat')
