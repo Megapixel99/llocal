@@ -21,6 +21,8 @@ import {
   backgroundImageAtom,
   customInstructionsAtom,
   responseStyleAtom,
+  promptLibraryAtom,
+  type SavedPrompt,
   type Effort,
   type Verbosity
 } from '../store/mocks'
@@ -53,7 +55,8 @@ const SETTINGS: SettingEntry[] = [
   },
   { key: 'bg', apply: (r) => { store.set(backgroundImageAtom, r); localStorage.setItem('bg', r) } },
   { key: 'customInstructions', apply: (r) => store.set(customInstructionsAtom, JSON.parse(r) as string) },
-  { key: 'responseStyle', apply: (r) => store.set(responseStyleAtom, JSON.parse(r) as ResponseStyleId) }
+  { key: 'responseStyle', apply: (r) => store.set(responseStyleAtom, JSON.parse(r) as ResponseStyleId) },
+  { key: 'promptLibrary', apply: (r) => store.set(promptLibraryAtom, JSON.parse(r) as SavedPrompt[]) }
 ]
 
 const SETTINGS_KEYS = SETTINGS.map((s) => s.key)
