@@ -23,8 +23,10 @@ import {
   responseStyleAtom,
   promptLibraryAtom,
   memoriesAtom,
+  projectsAtom,
   type SavedPrompt,
   type MemoryItem,
+  type Project,
   type Effort,
   type Verbosity
 } from '../store/mocks'
@@ -59,7 +61,8 @@ const SETTINGS: SettingEntry[] = [
   { key: 'customInstructions', apply: (r) => store.set(customInstructionsAtom, JSON.parse(r) as string) },
   { key: 'responseStyle', apply: (r) => store.set(responseStyleAtom, JSON.parse(r) as ResponseStyleId) },
   { key: 'promptLibrary', apply: (r) => store.set(promptLibraryAtom, JSON.parse(r) as SavedPrompt[]) },
-  { key: 'memories', apply: (r) => store.set(memoriesAtom, JSON.parse(r) as MemoryItem[]) }
+  { key: 'memories', apply: (r) => store.set(memoriesAtom, JSON.parse(r) as MemoryItem[]) },
+  { key: 'projects', apply: (r) => store.set(projectsAtom, JSON.parse(r) as Project[]) }
 ]
 
 const SETTINGS_KEYS = SETTINGS.map((s) => s.key)
