@@ -17,6 +17,7 @@ import {
   customInstructionsAtom,
   responseStyleAtom,
   attachedDocAtom,
+  memoriesAtom,
   sessionMetricsAtom,
   stopGeneratingAtom,
   streamingAtom,
@@ -25,6 +26,7 @@ import {
 } from '@renderer/store/mocks'
 import { streamPhase } from '../../../shared/mascot'
 import { buildSystemInstructions } from '../../../shared/styles'
+import { parseRememberCommand, buildMemoryBlock } from '../../../shared/memory'
 import { getOllama } from '@renderer/utils/ollama'
 // import axios from 'axios'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
@@ -89,6 +91,7 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
   const customInstructions = useAtomValue(customInstructionsAtom) // user persona/preferences
   const responseStyle = useAtomValue(responseStyleAtom) // response-style preset
   const [attachedDoc, setAttachedDoc] = useAtom(attachedDocAtom) // in-chat document attachment
+  const [memories, setMemories] = useAtom(memoriesAtom) // cross-conversation memory
   const firstChatRender = useRef(true)
   // The chat the in-flight request belongs to. Persisting a brand-new chat on send flips
   // selectedChatIndex, which would otherwise trip the abort-on-switch effect below and cancel the
@@ -153,7 +156,23 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
     const base = baseChat ?? chat
     // Custom instructions + response style → a system prompt for this turn ('' when unset). Injected
     // into the model call only; never stored in `base`/`chat`, so it isn't shown or persisted.
-    const systemInstructions = buildSystemInstructions(customInstructions, responseStyle)
+    // System prompt for this turn = custom instructions + style + recalled memory.
+    const memoryBlock = buildMemoryBlock(memories.map((m) => m.text))
+    const systemInstructions = [buildSystemInstructions(customInstructions, responseStyle), memoryBlock]
+      .filter(Boolean)
+      .join('\n\n')
+
+    // Explicit "remember …" capture: store the fact (still send the message normally).
+    const remembered = parseRememberCommand(prompt)
+    if (remembered) {
+      const id = globalThis.crypto?.randomUUID?.() ?? `m_${Date.now()}`
+      setMemories((prev) =>
+        prev.some((m) => m.text.toLowerCase() === remembered.toLowerCase())
+          ? prev
+          : [{ id, text: remembered, createdAt: Date.now() }, ...prev]
+      )
+      toast.success(t('Saved to memory'))
+    }
     // In-chat document: fold the extracted text into the SENT message only (not the
     // displayed/stored turn, which stays the plain prompt). Consumed for this turn.
     const docPrefix = attachedDoc
