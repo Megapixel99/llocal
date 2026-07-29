@@ -88,6 +88,16 @@ export interface MemoryItem {
   createdAt: number
 }
 export const memoriesAtom = atomWithStorage<MemoryItem[]>('memories', [])
+// Projects: group chats + per-project instructions/knowledge injected into their chats.
+// The project list syncs across devices; the active selection is per-device.
+export interface Project {
+  id: string
+  name: string
+  instructions: string
+  knowledge: string
+}
+export const projectsAtom = atomWithStorage<Project[]>('projects', [])
+export const activeProjectIdAtom = atomWithStorage<string | null>('activeProjectId', null)
 export type MascotPhase = 'reading' | 'responding'
 export const mascotPhaseAtom = atom<MascotPhase | null>(null) // what the model is doing while generating: reading (thinking/researching) vs responding (writing)
 export const knowledgeBaseAtom = atom<getVectorDb[]>([]) // For storing the list of vector db's

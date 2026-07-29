@@ -33,7 +33,8 @@ db.exec(`
     chat_json    TEXT NOT NULL DEFAULT '[]',
     metrics_json TEXT NOT NULL DEFAULT '[]',
     updated_at   INTEGER NOT NULL,
-    deleted_at   INTEGER
+    deleted_at   INTEGER,
+    project_id   TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_chats_updated_at ON chats (updated_at);
 
@@ -44,6 +45,14 @@ db.exec(`
   );
 `)
 
+// Migration: add project_id to DBs created before Projects existed. ALTER throws if
+// the column is already present (fresh DBs above), so it's guarded.
+try {
+  db.exec('ALTER TABLE chats ADD COLUMN project_id TEXT')
+} catch {
+  /* column already exists */
+}
+
 /** A single non-secret settings blob is stored under this key. */
 const SETTINGS_KEY = 'app'
 
@@ -52,6 +61,8 @@ export interface ChatSummary {
   title: string
   unread: boolean
   updatedAt: number
+  /** Project this chat belongs to, or null for none. */
+  projectId: string | null
   /** True when this row is a tombstone (only surfaced in `?since=` delta results). */
   deleted: boolean
 }
@@ -69,6 +80,7 @@ interface ChatDbRow {
   metrics_json: string
   updated_at: number
   deleted_at: number | null
+  project_id: string | null
 }
 
 function parseArray(json: string): unknown[] {
@@ -86,6 +98,7 @@ function toSummary(row: ChatDbRow): ChatSummary {
     title: row.title,
     unread: !!row.unread,
     updatedAt: row.updated_at,
+    projectId: row.project_id ?? null,
     deleted: row.deleted_at != null
   }
 }
@@ -99,24 +112,25 @@ function toRecord(row: ChatDbRow): ChatRecord {
 }
 
 const stmtListAll = db.prepare(
-  `SELECT date, title, unread, updated_at, deleted_at FROM chats
+  `SELECT date, title, unread, updated_at, deleted_at, project_id FROM chats
    WHERE deleted_at IS NULL ORDER BY date DESC`
 )
 const stmtListSince = db.prepare(
-  `SELECT date, title, unread, updated_at, deleted_at FROM chats
+  `SELECT date, title, unread, updated_at, deleted_at, project_id FROM chats
    WHERE updated_at > ? ORDER BY updated_at ASC`
 )
 const stmtGet = db.prepare(`SELECT * FROM chats WHERE date = ?`)
 const stmtUpsert = db.prepare(
-  `INSERT INTO chats (date, title, unread, chat_json, metrics_json, updated_at, deleted_at)
-   VALUES (@date, @title, @unread, @chat_json, @metrics_json, @updated_at, NULL)
+  `INSERT INTO chats (date, title, unread, chat_json, metrics_json, updated_at, deleted_at, project_id)
+   VALUES (@date, @title, @unread, @chat_json, @metrics_json, @updated_at, NULL, @project_id)
    ON CONFLICT(date) DO UPDATE SET
      title = excluded.title,
      unread = excluded.unread,
      chat_json = excluded.chat_json,
      metrics_json = excluded.metrics_json,
      updated_at = excluded.updated_at,
-     deleted_at = NULL`
+     deleted_at = NULL,
+     project_id = excluded.project_id`
 )
 const stmtSoftDelete = db.prepare(
   `UPDATE chats SET deleted_at = @now, updated_at = @now WHERE date = @date`
@@ -147,6 +161,7 @@ export interface PutChatInput {
   unread?: boolean
   chat?: unknown[]
   metrics?: unknown[]
+  projectId?: string | null
 }
 
 /** Upsert a chat (also un-deletes a previously tombstoned row). Returns the stored record. */
@@ -158,7 +173,8 @@ export function putChat(input: PutChatInput): ChatRecord {
     unread: input.unread ? 1 : 0,
     chat_json: JSON.stringify(Array.isArray(input.chat) ? input.chat : []),
     metrics_json: JSON.stringify(Array.isArray(input.metrics) ? input.metrics : []),
-    updated_at: now
+    updated_at: now,
+    project_id: input.projectId ?? null
   })
   return getChat(input.date) as ChatRecord
 }

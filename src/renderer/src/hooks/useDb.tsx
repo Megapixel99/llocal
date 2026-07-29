@@ -1,5 +1,5 @@
 import { db } from '@renderer/utils/db'
-import { Message, selectedChatIndexAtom, sessionMetricsAtom, titleUpdateAtom } from '../store/mocks'
+import { Message, selectedChatIndexAtom, sessionMetricsAtom, titleUpdateAtom, activeProjectIdAtom } from '../store/mocks'
 import type { MessageMetric } from '../../../shared/analytics'
 import { useSetAtom, useStore } from 'jotai'
 import { toast } from 'sonner';
@@ -14,6 +14,8 @@ export interface getDbReturn {
   unread?: boolean;
   /** Per-message analytics for this chat, persisted so they survive reloads / chat switches. */
   metrics?: MessageMetric[];
+  /** Project this chat belongs to (synced), or null/undefined for none. */
+  projectId?: string | null;
   /** Server-clock timestamp of the last-synced version (present once synced). */
   updatedAt?: number;
   /** Local edits not yet confirmed pushed to the companion server. */
@@ -51,7 +53,8 @@ export function useDb(): useDbReturn {
     await db
       .collection('chat')
       // `dirty: true` until pushLocalChat confirms the mirror to the server.
-      .add({ date: isoDateString, title, chat: messages, unread: true, metrics: store.get(sessionMetricsAtom), dirty: true })
+      // Stamp the active project so the chat is filed under it (and syncs there).
+      .add({ date: isoDateString, title, chat: messages, unread: true, metrics: store.get(sessionMetricsAtom), projectId: store.get(activeProjectIdAtom) ?? null, dirty: true })
       .then((chat) => console.log('AddChat (new): ', chat))
     setSelectedChatIndex(isoDateString)
     void pushLocalChat(isoDateString) // fire-and-forget mirror; UI never waits on the network
