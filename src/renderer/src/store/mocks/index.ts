@@ -2,6 +2,7 @@ import { listModels } from '@renderer/hooks/useOllama'
 import type { Command } from '@renderer/utils/commands'
 import type { MessageMetric } from '../../../../shared/analytics'
 import { DEFAULT_NOTIFICATION_PREFS, type NotificationPrefs } from '../../../../shared/notifications'
+import type { ResponseStyleId } from '../../../../shared/styles'
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 
@@ -66,6 +67,10 @@ export const effortAtom = atomWithStorage<Effort>('researchEffort', 'medium')
 export type Verbosity = 'summary' | 'normal' | 'thinking' | 'verbose'
 export const verbosityAtom = atomWithStorage<Verbosity>('reasoningVerbosity', 'normal')
 export const mascotEnabledAtom = atomWithStorage<boolean>('mascotEnabled', true) // the little composer mascot ("Lo"); opt-out in Preferences
+// Custom instructions (a persistent persona/preferences) + response-style preset, combined into a
+// system prompt on the Chat tab (see usePrompt + shared/styles.ts). Synced across devices.
+export const customInstructionsAtom = atomWithStorage<string>('customInstructions', '')
+export const responseStyleAtom = atomWithStorage<ResponseStyleId>('responseStyle', 'normal')
 export type MascotPhase = 'reading' | 'responding'
 export const mascotPhaseAtom = atom<MascotPhase | null>(null) // what the model is doing while generating: reading (thinking/researching) vs responding (writing)
 export const knowledgeBaseAtom = atom<getVectorDb[]>([]) // For storing the list of vector db's

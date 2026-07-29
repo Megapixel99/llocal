@@ -14,6 +14,8 @@ import {
   mascotPhaseAtom,
   notificationPrefsAtom,
   prefModelAtom,
+  customInstructionsAtom,
+  responseStyleAtom,
   sessionMetricsAtom,
   stopGeneratingAtom,
   streamingAtom,
@@ -21,6 +23,7 @@ import {
   workingFolderAtom,
 } from '@renderer/store/mocks'
 import { streamPhase } from '../../../shared/mascot'
+import { buildSystemInstructions } from '../../../shared/styles'
 import { getOllama } from '@renderer/utils/ollama'
 // import axios from 'axios'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
@@ -82,6 +85,8 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
   const effort = useAtomValue(effortAtom) // DeepResearch breadth: low | medium | high
   const notificationPrefs = useAtomValue(notificationPrefsAtom) // native OS notification settings
   const selectedChatIndex = useAtomValue(selectedChatIndexAtom)
+  const customInstructions = useAtomValue(customInstructionsAtom) // user persona/preferences
+  const responseStyle = useAtomValue(responseStyleAtom) // response-style preset
   const firstChatRender = useRef(true)
   // The chat the in-flight request belongs to. Persisting a brand-new chat on send flips
   // selectedChatIndex, which would otherwise trip the abort-on-switch effect below and cancel the
@@ -144,6 +149,9 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
     const ollama = getOllama()
     // The history this turn extends. When editing/retrying, it's the truncated chat passed in.
     const base = baseChat ?? chat
+    // Custom instructions + response style → a system prompt for this turn ('' when unset). Injected
+    // into the model call only; never stored in `base`/`chat`, so it isn't shown or persisted.
+    const systemInstructions = buildSystemInstructions(customInstructions, responseStyle)
     try {
       let user: userContentType = { role: 'user', content: prompt }
       const initialUser = user
@@ -267,6 +275,7 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
             const composed = await runReasoning({
               model: modelName,
               messages: [...base, initialUser],
+              instructions: systemInstructions,
               onProgress: (t) => setStream(t),
               shouldStop: () => stopGeneratingRef.current,
               onPhase: setMascotPhase
@@ -291,6 +300,7 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
               model: modelName,
               prompt,
               effort,
+              instructions: systemInstructions,
               onProgress: (t) => setStream(t),
               shouldStop: () => stopGeneratingRef.current,
               onPhase: setMascotPhase
@@ -359,18 +369,22 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
       // Reasoning models (gpt-oss / harmony format) can route their reasoning into Ollama's separate
       // `message.thinking` field via the `think` option, instead of leaking raw <|channel|> tokens into
       // the content. Not every model accepts the option, so we fall back to a plain request if it's rejected.
+      // Prepend the custom-instructions/style system prompt for this turn (if any).
+      const chatMessages = systemInstructions
+        ? [{ role: 'system', content: systemInstructions }, ...base, user]
+        : [...base, user]
       let response
       try {
         response = await ollama.chat({
           model: modelName,
-          messages: [...base, user],
+          messages: chatMessages,
           stream: true,
           think: true
         })
       } catch {
         response = await ollama.chat({
           model: modelName,
-          messages: [...base, user],
+          messages: chatMessages,
           stream: true
         })
       }
