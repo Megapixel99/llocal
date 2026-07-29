@@ -18,6 +18,7 @@ import { Button } from '@renderer/ui/Button'
 import { MoreButton } from './MoreButton'
 import { ContextCard } from './ContextCard'
 import { ContextInfo } from './ContextInfo'
+import { CompactButton } from './CompactButton'
 import { AnalyticsPanel } from './Analytics/AnalyticsPanel'
 import { Modal } from '@renderer/ui/Modal'
 import { GitPanel } from './GitPanel'
@@ -293,6 +294,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
               {queue.length} {t('queued')} ✕
             </button>
           )}
+          <CompactButton />
           <ContextInfo />
           <Modal.Root>
             <ToolTip tooltip={t('Session analytics')}>
