@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAtom } from 'jotai'
 import { toast } from 'sonner'
 import { LuCopy, LuRefreshCw, LuAlertTriangle, LuExternalLink, LuQrCode, LuScanLine } from 'react-icons/lu'
@@ -128,6 +128,21 @@ export const ServerSettings = (): React.ReactElement => {
       execEnabled: false
     }
   }
+
+  // Expose the pairing QR automatically whenever a valid URL + token are set — no click
+  // needed. "Show pairing code" then only enriches it with the server's LAN candidate URLs.
+  useEffect(() => {
+    if (form.serverBaseUrl && form.serverToken) {
+      try {
+        setPairing(localPairing(form.serverBaseUrl, form.serverToken))
+      } catch {
+        setPairing(null) // invalid URL/token — nothing to show yet
+      }
+    } else {
+      setPairing(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.serverBaseUrl, form.serverToken])
 
   /**
    * Show a pairing QR (or rotate the token first).
@@ -263,7 +278,7 @@ export const ServerSettings = (): React.ReactElement => {
         <h2 className="text-lg">{t('Pair a device')}</h2>
         <p className="text-xs opacity-60">
           {t(
-            'Generate a pairing code, then paste it into LLocal on your phone to configure the server URL and token in one step.'
+            'Once a Server URL + token are set, the QR below appears automatically — scan it in LLocal on your phone to configure it in one step. Refresh to add the server’s LAN addresses.'
           )}
         </p>
         <div className="flex flex-wrap gap-2">
@@ -271,9 +286,9 @@ export const ServerSettings = (): React.ReactElement => {
             variant="primary"
             className="w-fit"
             onClick={() => loadPairing(false)}
-            disabled={pairingBusy}
+            disabled={pairingBusy || !form.serverBaseUrl || !form.serverToken}
           >
-            {t('Show pairing code')}
+            {t('Refresh from server')}
           </Button>
           <Button
             variant="secondary"
