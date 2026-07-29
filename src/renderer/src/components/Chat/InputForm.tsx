@@ -7,7 +7,7 @@ import React, {
 } from 'react'
 import { twMerge } from 'tailwind-merge'
 import { PiChartBarBold, PiPaperPlaneRightFill, PiStopCircleBold } from 'react-icons/pi'
-import { LuNetwork, LuTerminal } from 'react-icons/lu'
+import { LuNetwork, LuTerminal, LuFileText } from 'react-icons/lu'
 import { SubmitHandler, useForm } from 'react-hook-form'
 import { usePrompt } from '@renderer/hooks/usePrompt'
 import { getOllama } from '@renderer/utils/ollama'
@@ -35,7 +35,7 @@ import { Mascot } from './Mascot'
 import { AutoComplete } from './AutoComplete'
 import { CommandPalette } from './CommandPalette'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { activeTabAtom, agentModeAtom, commandListAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, notificationPrefsAtom, regenerateRequestAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
+import { activeTabAtom, agentModeAtom, attachedDocAtom, commandListAtom, fileContextAtom, fileDropAtom, knowledgeBaseAtom, notificationPrefsAtom, regenerateRequestAtom, stopGeneratingAtom, suggestionsAtom } from '@renderer/store/mocks'
 import ToolTip from '@renderer/ui/ToolTip'
 import { t } from '@renderer/utils/utils'
 import { Command, filterCommands, maybeExpandCommand } from '@renderer/utils/commands'
@@ -73,6 +73,7 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
   const setStopGenerating = useSetAtom(stopGeneratingAtom)
   const setSuggestions = useSetAtom(suggestionsAtom)
   const context = useAtomValue(fileContextAtom)
+  const [attachedDoc, setAttachedDoc] = useAtom(attachedDocAtom)
   const activeTab = useAtomValue(activeTabAtom)
   const [isAutoComplete, setIsAutoComplete] = useState(false)
   const [commandList, setCommandList] = useAtom(commandListAtom)
@@ -276,6 +277,23 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
           />
           <WorkspaceFolder />
           <GitPanel />
+          {attachedDoc && (
+            <span
+              className="flex items-center gap-1 rounded-full bg-foreground bg-opacity-20 dark:bg-background dark:bg-opacity-30 px-2 py-0.5 text-xs"
+              title={t('Attached to your next message')}
+            >
+              <LuFileText className="shrink-0" />
+              <span className="max-w-[10rem] truncate">{attachedDoc.name}</span>
+              <button
+                type="button"
+                onClick={() => setAttachedDoc(null)}
+                title={t('Remove')}
+                className="opacity-60 hover:opacity-100"
+              >
+                ✕
+              </button>
+            </span>
+          )}
           {activeTab === 'agent' && (
             <button
               type="button"
