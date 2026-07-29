@@ -16,6 +16,7 @@ import { saveDocument } from './utils/doc-builder'
 import { createPullRequest, createWorktree, getGitCapabilities, getGitInfo, listWorktrees } from './utils/git-utils'
 import { AGENT_TOOLS, MUTATING_TOOLS, runAgentTool } from './utils/agent-tools'
 import { killTerminal, startTerminal, writeTerminal, StartTerminalOptions } from './utils/terminal'
+import { execLocal, type ExecLocalOptions } from './utils/exec-local'
 import { setNotificationPrefs, showNotification } from './utils/notifier'
 import type { NotificationEvent, NotificationPayload, NotificationPrefs } from '../shared/notifications'
 import { listCommands } from './utils/commands'
@@ -351,6 +352,11 @@ app.whenReady().then(() => {
   ipcMain.handle('terminal:kill', async (_event, { sessionId }: { sessionId: string }) =>
     killTerminal(sessionId)
   )
+
+  // One-shot local command execution for the code-block "Run" button. Policy
+  // (enable toggle, allowlist, per-command approval) is enforced in the renderer
+  // before this is invoked — see platform/runCommand.ts.
+  ipcMain.handle('exec:local', async (_event, opts: ExecLocalOptions) => execLocal(opts))
 
   // ---- MCP (Model Context Protocol): connect to external servers and expose their tools ----
   // The renderer passes the configured servers (persisted with the rest of its config); we connect,

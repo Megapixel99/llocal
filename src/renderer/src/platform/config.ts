@@ -36,6 +36,14 @@ export interface RemoteConfig {
    * for both chat sync and inference. Off by default → original direct behavior.
    */
   routeOllamaThroughServer: boolean
+  /**
+   * Allow running LLM-generated shell commands (off by default). Even when on,
+   * every command needs explicit approval AND must match `execAllowlist`. Kept
+   * per-device and NEVER synced — exec policy is a local safety choice.
+   */
+  execEnabled: boolean
+  /** Permitted command prefixes (first token). Empty = nothing is runnable. */
+  execAllowlist: string[]
   git: GitConfig
   /** External MCP (Model Context Protocol) servers whose tools the coding agent can use. */
   mcpServers: McpServer[]
@@ -49,6 +57,8 @@ export const DEFAULT_REMOTE_CONFIG: RemoteConfig = {
   serverBaseUrl: '',
   serverToken: '',
   routeOllamaThroughServer: false,
+  execEnabled: false,
+  execAllowlist: [],
   git: {
     provider: 'github',
     token: '',
@@ -69,7 +79,8 @@ function readConfig(): RemoteConfig {
       ...DEFAULT_REMOTE_CONFIG,
       ...parsed,
       git: { ...DEFAULT_REMOTE_CONFIG.git, ...(parsed.git ?? {}) },
-      mcpServers: parsed.mcpServers ?? []
+      mcpServers: parsed.mcpServers ?? [],
+      execAllowlist: parsed.execAllowlist ?? []
     }
   } catch {
     return { ...DEFAULT_REMOTE_CONFIG }
@@ -106,6 +117,11 @@ export function getOllamaEndpoint(): { host: string; headers?: Record<string, st
 /** True when inference is routed through the companion server's /ollama proxy. */
 export function isRoutingOllamaThroughServer(): boolean {
   return !!(current.routeOllamaThroughServer && current.serverBaseUrl)
+}
+
+/** Current command-execution policy (enable toggle + first-token allowlist). */
+export function getExecPolicy(): { enabled: boolean; allowlist: string[] } {
+  return { enabled: !!current.execEnabled, allowlist: current.execAllowlist ?? [] }
 }
 
 export function getServerConfig(): { baseUrl: string; token: string } {

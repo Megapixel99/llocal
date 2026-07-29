@@ -71,6 +71,7 @@ declare global {
       getLanguages: () => Promise<readonly string[]>,
       titleBar: (event: string) => void,
       textToSpeech: (text: string) => Promise<ArrayBuffer>,
+      execLocal: (opts: { command: string; cwd?: string }) => Promise<{ stdout: string; stderr: string; code: number }>,
       startTerminal: (opts: { command: string; cwd?: string }) => Promise<string>,
       sendTerminalInput: (sessionId: string, data: string) => Promise<boolean>,
       killTerminal: (sessionId: string) => Promise<boolean>,
