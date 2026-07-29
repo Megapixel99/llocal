@@ -39,6 +39,8 @@ export interface LocalChatDoc {
   chat: Message[]
   unread?: boolean
   metrics?: MessageMetric[]
+  /** Project this chat belongs to (synced), or null/undefined for none. */
+  projectId?: string | null
   /** Server-clock timestamp of the version we last saw; drives delta pulls. */
   updatedAt?: number
   /** Local edits not yet confirmed pushed to the server (retry on next sync). */
@@ -50,6 +52,7 @@ export interface RemoteChatSummary {
   title: string
   unread: boolean
   updatedAt: number
+  projectId: string | null
   deleted: boolean
 }
 export interface RemoteChatRecord extends RemoteChatSummary {
@@ -88,7 +91,8 @@ export const chatApi = {
         title: doc.title ?? '',
         unread: !!doc.unread,
         chat: doc.chat ?? [],
-        metrics: doc.metrics ?? []
+        metrics: doc.metrics ?? [],
+        projectId: doc.projectId ?? null
       })
     }),
   del: (date: string): Promise<{ ok: boolean }> =>
@@ -188,6 +192,7 @@ export async function syncChats(onChange?: () => void): Promise<void> {
           chat: full.chat,
           unread: full.unread,
           metrics: full.metrics,
+          projectId: full.projectId ?? null,
           updatedAt: full.updatedAt,
           dirty: false
         }

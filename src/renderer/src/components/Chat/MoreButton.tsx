@@ -2,11 +2,12 @@ import { Menu } from '@renderer/ui/Menu'
 import { cn, t } from '@renderer/utils/utils'
 import { ChangeEvent, ComponentProps } from 'react'
 import { IoIosAddCircle } from 'react-icons/io'
-import { LuFile, LuFolder, LuImage } from 'react-icons/lu'
+import { LuFile, LuFolder, LuImage, LuFileText } from 'react-icons/lu'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { workingFolderAtom, experimentalSearchAtom, fileContextAtom, imageAttatchmentAtom, modelListAtom } from '@renderer/store/mocks'
+import { workingFolderAtom, experimentalSearchAtom, fileContextAtom, imageAttatchmentAtom, modelListAtom, attachedDocAtom } from '@renderer/store/mocks'
 import { toast } from 'sonner'
 import { Checkbox } from '@renderer/ui/Checkbox'
+import { extractTextFromFile } from '@renderer/utils/extractText'
 
 export const MoreButton = ({ className, ...props }: ComponentProps<'div'>): React.ReactElement => {
   // initializing state to show menu
@@ -15,6 +16,27 @@ export const MoreButton = ({ className, ...props }: ComponentProps<'div'>): Reac
   const modelList = useAtomValue(modelListAtom)
   const setFile = useSetAtom(fileContextAtom);
   const setWorkingFolder = useSetAtom(workingFolderAtom);
+  const setAttachedDoc = useSetAtom(attachedDocAtom);
+
+  // In-chat document analysis: extract text from a file (pdf / text-like) and attach it to the
+  // next turn's context. Works on desktop AND phone (all in the renderer, no server needed).
+  const handleAttachDoc = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file later
+    if (!file) return
+    const id = toast.loading(t('Reading document…'))
+    try {
+      const text = await extractTextFromFile(file)
+      if (!text) {
+        toast.error(t('No readable text found in that file'), { id })
+        return
+      }
+      setAttachedDoc({ name: file.name, text })
+      toast.success(t('Document attached'), { id })
+    } catch (err) {
+      toast.error(`${err instanceof Error ? err.message : err}`, { id })
+    }
+  }
   function handleClick(): void {
     // checking if the embedding model exists
     let check = false
@@ -116,6 +138,18 @@ export const MoreButton = ({ className, ...props }: ComponentProps<'div'>): Reac
               className="hidden"
               id="images"
               accept="image/*"
+            />
+          </Menu.Item>
+          {/* In-chat document analysis (pdf / text): reads the file into this turn's context. */}
+          <Menu.Item onSelect={(e) => e.preventDefault()} onInput={handleAttachDoc} className='w-full'>
+            <label htmlFor="attach-doc" className="flex items-center gap-2 cursor-pointer">
+              <LuFileText className="text-2xl" /> {t('Attach document')}
+            </label>
+            <input
+              type="file"
+              className="hidden"
+              id="attach-doc"
+              accept=".pdf,.txt,.md,.markdown,.csv,.tsv,.json,.log,.xml,.yaml,.yml,.html,.htm,.js,.ts,.tsx,.jsx,.py,.rb,.go,.rs,.java,.c,.cpp,.h,.cs,.php,.swift,.sh,.sql,.toml,.ini,.env,.css,text/*"
             />
           </Menu.Item>
           <Menu.Item onSelect={(e) => e.preventDefault()} onClick={handleClick} className="w-full cursor-pointer flex items-center gap-2">

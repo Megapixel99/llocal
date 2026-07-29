@@ -2,6 +2,7 @@ import { listModels } from '@renderer/hooks/useOllama'
 import type { Command } from '@renderer/utils/commands'
 import type { MessageMetric } from '../../../../shared/analytics'
 import { DEFAULT_NOTIFICATION_PREFS, type NotificationPrefs } from '../../../../shared/notifications'
+import type { ResponseStyleId } from '../../../../shared/styles'
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 
@@ -52,6 +53,9 @@ export const stopGeneratingAtom = atom<boolean>(false) // Handling the option to
 export const imageAttatchmentAtom = atom<string>('') // Storing the base64 image
 export const experimentalSearchAtom = atom<boolean>(false) // Toggle for websearch
 export const fileContextAtom = atom<fileContext[]>([]) // For storing the current file for RAG
+// In-chat document attachment (distinct from RAG): extracted text dropped into the next turn's
+// context. In-memory + per-turn — cleared after the message is sent.
+export const attachedDocAtom = atom<{ name: string; text: string } | null>(null)
 export const workingFolderAtom = atomWithStorage<string>('workingFolder', '') // Chosen working folder (like a project dir); persisted, enables git features when it's a repo
 export type appTab = 'chat' | 'agent' // left-sidebar tabs: plain chat vs the coding agent
 export const activeTabAtom = atomWithStorage<appTab>('activeTab', 'chat')
@@ -66,6 +70,34 @@ export const effortAtom = atomWithStorage<Effort>('researchEffort', 'medium')
 export type Verbosity = 'summary' | 'normal' | 'thinking' | 'verbose'
 export const verbosityAtom = atomWithStorage<Verbosity>('reasoningVerbosity', 'normal')
 export const mascotEnabledAtom = atomWithStorage<boolean>('mascotEnabled', true) // the little composer mascot ("Lo"); opt-out in Preferences
+// Custom instructions (a persistent persona/preferences) + response-style preset, combined into a
+// system prompt on the Chat tab (see usePrompt + shared/styles.ts). Synced across devices.
+export const customInstructionsAtom = atomWithStorage<string>('customInstructions', '')
+export const responseStyleAtom = atomWithStorage<ResponseStyleId>('responseStyle', 'normal')
+// Saved/reusable prompts (a "prompt library"); inserted into the composer. Synced across devices.
+export interface SavedPrompt {
+  id: string
+  title: string
+  body: string
+}
+export const promptLibraryAtom = atomWithStorage<SavedPrompt[]>('promptLibrary', [])
+// Cross-conversation memory: durable facts recalled into the system prompt. Synced across devices.
+export interface MemoryItem {
+  id: string
+  text: string
+  createdAt: number
+}
+export const memoriesAtom = atomWithStorage<MemoryItem[]>('memories', [])
+// Projects: group chats + per-project instructions/knowledge injected into their chats.
+// The project list syncs across devices; the active selection is per-device.
+export interface Project {
+  id: string
+  name: string
+  instructions: string
+  knowledge: string
+}
+export const projectsAtom = atomWithStorage<Project[]>('projects', [])
+export const activeProjectIdAtom = atomWithStorage<string | null>('activeProjectId', null)
 export type MascotPhase = 'reading' | 'responding'
 export const mascotPhaseAtom = atom<MascotPhase | null>(null) // what the model is doing while generating: reading (thinking/researching) vs responding (writing)
 export const knowledgeBaseAtom = atom<getVectorDb[]>([]) // For storing the list of vector db's

@@ -56,7 +56,8 @@ syncRouter.put('/chats/:date', (req, res) => {
     title: typeof body.title === 'string' ? body.title : '',
     unread: !!body.unread,
     chat: Array.isArray(body.chat) ? body.chat : [],
-    metrics: Array.isArray(body.metrics) ? body.metrics : []
+    metrics: Array.isArray(body.metrics) ? body.metrics : [],
+    projectId: typeof body.projectId === 'string' ? body.projectId : null
   })
   res.json(record)
 })

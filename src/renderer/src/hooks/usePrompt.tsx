@@ -14,6 +14,12 @@ import {
   mascotPhaseAtom,
   notificationPrefsAtom,
   prefModelAtom,
+  customInstructionsAtom,
+  responseStyleAtom,
+  attachedDocAtom,
+  memoriesAtom,
+  projectsAtom,
+  activeProjectIdAtom,
   sessionMetricsAtom,
   stopGeneratingAtom,
   streamingAtom,
@@ -21,6 +27,8 @@ import {
   workingFolderAtom,
 } from '@renderer/store/mocks'
 import { streamPhase } from '../../../shared/mascot'
+import { buildSystemInstructions } from '../../../shared/styles'
+import { parseRememberCommand, buildMemoryBlock } from '../../../shared/memory'
 import { getOllama } from '@renderer/utils/ollama'
 // import axios from 'axios'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
@@ -82,6 +90,12 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
   const effort = useAtomValue(effortAtom) // DeepResearch breadth: low | medium | high
   const notificationPrefs = useAtomValue(notificationPrefsAtom) // native OS notification settings
   const selectedChatIndex = useAtomValue(selectedChatIndexAtom)
+  const customInstructions = useAtomValue(customInstructionsAtom) // user persona/preferences
+  const responseStyle = useAtomValue(responseStyleAtom) // response-style preset
+  const [attachedDoc, setAttachedDoc] = useAtom(attachedDocAtom) // in-chat document attachment
+  const [memories, setMemories] = useAtom(memoriesAtom) // cross-conversation memory
+  const projects = useAtomValue(projectsAtom) // project definitions
+  const activeProjectId = useAtomValue(activeProjectIdAtom) // current project selection
   const firstChatRender = useRef(true)
   // The chat the in-flight request belongs to. Persisting a brand-new chat on send flips
   // selectedChatIndex, which would otherwise trip the abort-on-switch effect below and cancel the
@@ -144,6 +158,46 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
     const ollama = getOllama()
     // The history this turn extends. When editing/retrying, it's the truncated chat passed in.
     const base = baseChat ?? chat
+    // Custom instructions + response style → a system prompt for this turn ('' when unset). Injected
+    // into the model call only; never stored in `base`/`chat`, so it isn't shown or persisted.
+    // System prompt for this turn = custom instructions + style + recalled memory +
+    // the active project's instructions/knowledge (when a project is selected).
+    const memoryBlock = buildMemoryBlock(memories.map((m) => m.text))
+    const project = projects.find((p) => p.id === activeProjectId)
+    const projectBlock = project
+      ? [
+          project.instructions?.trim() ? `Project instructions:\n${project.instructions.trim()}` : '',
+          project.knowledge?.trim() ? `Project knowledge:\n${project.knowledge.trim()}` : ''
+        ]
+          .filter(Boolean)
+          .join('\n\n')
+      : ''
+    const systemInstructions = [
+      buildSystemInstructions(customInstructions, responseStyle),
+      projectBlock,
+      memoryBlock
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+
+    // Explicit "remember …" capture: store the fact (still send the message normally).
+    const remembered = parseRememberCommand(prompt)
+    if (remembered) {
+      const id = globalThis.crypto?.randomUUID?.() ?? `m_${Date.now()}`
+      setMemories((prev) =>
+        prev.some((m) => m.text.toLowerCase() === remembered.toLowerCase())
+          ? prev
+          : [{ id, text: remembered, createdAt: Date.now() }, ...prev]
+      )
+      toast.success(t('Saved to memory'))
+    }
+    // In-chat document: fold the extracted text into the SENT message only (not the
+    // displayed/stored turn, which stays the plain prompt). Consumed for this turn.
+    const docPrefix = attachedDoc
+      ? `The user attached a document "${attachedDoc.name}". Use its contents to answer.\n"""\n${attachedDoc.text}\n"""\n\n`
+      : ''
+    if (attachedDoc) setAttachedDoc(null)
+    const withDoc = (text: string): string => docPrefix + text
     try {
       let user: userContentType = { role: 'user', content: prompt }
       const initialUser = user
@@ -266,7 +320,8 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
           try {
             const composed = await runReasoning({
               model: modelName,
-              messages: [...base, initialUser],
+              messages: [...base, docPrefix ? { ...initialUser, content: withDoc(initialUser.content) } : initialUser],
+              instructions: systemInstructions,
               onProgress: (t) => setStream(t),
               shouldStop: () => stopGeneratingRef.current,
               onPhase: setMascotPhase
@@ -289,8 +344,9 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
           try {
             const { content, sources: researchSources } = await runDeepResearch({
               model: modelName,
-              prompt,
+              prompt: withDoc(prompt),
               effort,
+              instructions: systemInstructions,
               onProgress: (t) => setStream(t),
               shouldStop: () => stopGeneratingRef.current,
               onPhase: setMascotPhase
@@ -359,18 +415,24 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
       // Reasoning models (gpt-oss / harmony format) can route their reasoning into Ollama's separate
       // `message.thinking` field via the `think` option, instead of leaking raw <|channel|> tokens into
       // the content. Not every model accepts the option, so we fall back to a plain request if it's rejected.
+      // Prepend the custom-instructions/style system prompt for this turn (if any),
+      // and fold any attached document into the (sent-only) user message.
+      const sentUser = docPrefix ? { ...user, content: withDoc(user.content) } : user
+      const chatMessages = systemInstructions
+        ? [{ role: 'system', content: systemInstructions }, ...base, sentUser]
+        : [...base, sentUser]
       let response
       try {
         response = await ollama.chat({
           model: modelName,
-          messages: [...base, user],
+          messages: chatMessages,
           stream: true,
           think: true
         })
       } catch {
         response = await ollama.chat({
           model: modelName,
-          messages: [...base, user],
+          messages: chatMessages,
           stream: true
         })
       }
