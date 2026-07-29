@@ -19,6 +19,7 @@ import { MoreButton } from './MoreButton'
 import { ContextCard } from './ContextCard'
 import { ContextInfo } from './ContextInfo'
 import { CompactButton } from './CompactButton'
+import { PromptLibrary } from './PromptLibrary'
 import { AnalyticsPanel } from './Analytics/AnalyticsPanel'
 import { Modal } from '@renderer/ui/Modal'
 import { GitPanel } from './GitPanel'
@@ -60,7 +61,7 @@ function autoGrow(el: HTMLTextAreaElement): void {
 }
 
 export const InputForm = ({ className, ...props }: ComponentProps<'form'>): React.ReactElement => {
-  const { register, handleSubmit, reset, setValue, setFocus } = useForm<FormFieldsType>({
+  const { register, handleSubmit, reset, setValue, setFocus, getValues } = useForm<FormFieldsType>({
     resolver: zodResolver(FormFieldsSchema)
   })
   const [isLoading, promptReq] = usePrompt()
@@ -266,6 +267,13 @@ export const InputForm = ({ className, ...props }: ComponentProps<'form'>): Reac
           {activeTab === 'chat' && <EffortSelector />}
           {/* Reasoning display applies to any assistant output, so it's available on both tabs. */}
           <VerbositySelector />
+          <PromptLibrary
+            getCurrent={() => getValues('prompt') ?? ''}
+            onInsert={(body) => {
+              setValue('prompt', body)
+              setFocus('prompt')
+            }}
+          />
           <WorkspaceFolder />
           <GitPanel />
           {activeTab === 'agent' && (

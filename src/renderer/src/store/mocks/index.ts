@@ -71,6 +71,13 @@ export const mascotEnabledAtom = atomWithStorage<boolean>('mascotEnabled', true)
 // system prompt on the Chat tab (see usePrompt + shared/styles.ts). Synced across devices.
 export const customInstructionsAtom = atomWithStorage<string>('customInstructions', '')
 export const responseStyleAtom = atomWithStorage<ResponseStyleId>('responseStyle', 'normal')
+// Saved/reusable prompts (a "prompt library"); inserted into the composer. Synced across devices.
+export interface SavedPrompt {
+  id: string
+  title: string
+  body: string
+}
+export const promptLibraryAtom = atomWithStorage<SavedPrompt[]>('promptLibrary', [])
 export type MascotPhase = 'reading' | 'responding'
 export const mascotPhaseAtom = atom<MascotPhase | null>(null) // what the model is doing while generating: reading (thinking/researching) vs responding (writing)
 export const knowledgeBaseAtom = atom<getVectorDb[]>([]) // For storing the list of vector db's
