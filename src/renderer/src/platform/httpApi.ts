@@ -82,6 +82,9 @@ export interface LlocalApi {
   runScheduleNow: (id: string) => Promise<boolean>
   notify: (event: string, payload: unknown, prefs: unknown) => Promise<boolean>
   notifySetPrefs: (prefs: unknown) => Promise<void>
+  // Local one-shot exec — desktop-only. On mobile, code-block Run goes to the companion
+  // server's /exec via runCommand.ts, so this shim member is never actually called.
+  execLocal: (opts: { command: string; cwd?: string }) => Promise<{ stdout: string; stderr: string; code: number }>
   // The interactive terminal spawns a local child process — desktop-only. Stubbed on mobile so the
   // Code-tab terminal opens without crashing (subscriptions are no-ops; start reports unavailable).
   startTerminal: (opts: { command: string; cwd?: string }) => Promise<string>
@@ -245,6 +248,7 @@ export function createHttpApi(): LlocalApi {
 
     // Interactive terminal is desktop-only (local child process). No-op subscriptions + a clear
     // error on start so the panel degrades instead of crashing the app on mobile.
+    execLocal: () => Promise.reject(new Error(DESKTOP_ONLY)),
     startTerminal: () => Promise.reject(new Error(DESKTOP_ONLY)),
     sendTerminalInput: async () => false,
     killTerminal: async () => false,

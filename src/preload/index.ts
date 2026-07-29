@@ -48,6 +48,9 @@ const api = {
   getLanguages: (): Promise<readonly string[]> => ipcRenderer.invoke('getLanguages'),
   titleBar: (event: string): void => ipcRenderer.send('titleBar', event),
   textToSpeech: (text: string): Promise<ArrayBuffer> => ipcRenderer.invoke('textToSpeech', text),
+  // ---- One-shot local command execution (code-block Run button) ----
+  execLocal: (opts: { command: string; cwd?: string }): Promise<{ stdout: string; stderr: string; code: number }> =>
+    ipcRenderer.invoke('exec:local', opts),
   // ---- Interactive terminal ----
   startTerminal: (opts: { command: string; cwd?: string }): Promise<string> => ipcRenderer.invoke('terminal:start', opts),
   sendTerminalInput: (sessionId: string, data: string): Promise<boolean> => ipcRenderer.invoke('terminal:input', { sessionId, data }),

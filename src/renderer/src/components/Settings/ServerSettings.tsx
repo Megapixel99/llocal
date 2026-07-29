@@ -8,6 +8,7 @@ import { remoteConfigAtom } from '@renderer/platform/config'
 import { rebuildOllamaClients } from '@renderer/utils/ollama'
 import { pingOllama, pingServer, fetchPairing, type PairingResponse } from '@renderer/platform/serverClient'
 import { parsePairingPayload, encodePairingPayload, PAIRING_VERSION } from '../../../../shared/pairing'
+import { parseAllowlist } from '../../../../shared/exec-policy'
 import { isElectron } from '@renderer/platform/detect'
 import { QrCode } from '@renderer/ui/QrCode'
 import { QrScanner } from './QrScanner'
@@ -373,6 +374,44 @@ export const ServerSettings = (): React.ReactElement => {
         >
           {t('Apply pairing code')}
         </Button>
+      </section>
+
+      {/* --- Command execution (advanced) ---------------------------------- */}
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg">{t('Command execution')}</h2>
+        <p className="text-xs text-amber-500 flex items-start gap-1">
+          <LuAlertTriangle className="mt-0.5 shrink-0" />
+          <span>
+            {t(
+              'Lets you run shell commands the model writes. Every run still needs your approval and must match the allowlist below. On this desktop commands run on THIS computer; on the phone they run on your Mac. Only enable this if you understand the risk — a command from a poisoned context could be destructive.'
+            )}
+          </span>
+        </p>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            className="shrink-0"
+            checked={form.execEnabled}
+            onChange={(e) => update({ execEnabled: e.target.checked })}
+          />
+          <span className="text-sm">{t('Enable running commands from code blocks')}</span>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs opacity-70">
+            {t('Allowlist (one command per line, or comma-separated). Empty = nothing runs.')}
+          </span>
+          <textarea
+            className={`${fieldClass} font-mono min-h-[72px] resize-y`}
+            value={form.execAllowlist.join('\n')}
+            placeholder={'git\nls\nnpm\nrg'}
+            onChange={(e) => update({ execAllowlist: parseAllowlist(e.target.value) })}
+          />
+        </label>
+        <p className="text-xs opacity-60">
+          {t(
+            'Matching is by the first word (a program name), so “git” permits any git subcommand. For the phone→Mac path, the companion server must also be started with LLOCAL_ENABLE_EXEC=1 and its own LLOCAL_EXEC_ALLOWLIST.'
+          )}
+        </p>
       </section>
 
       {/* --- Remote access help -------------------------------------------- */}

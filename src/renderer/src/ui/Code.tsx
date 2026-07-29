@@ -10,6 +10,9 @@ import { atomOneDarkReasonable } from 'react-syntax-highlighter/dist/cjs/styles/
 import { isPreviewableLanguage } from '@renderer/utils/preview'
 import { activeArtifactAtom } from '@renderer/store/mocks'
 import { t } from '@renderer/utils/utils'
+import { getExecPolicy } from '@renderer/platform/config'
+import { isShellLanguage } from '../../../shared/exec-policy'
+import { RunCommandButton } from '@renderer/components/Chat/RunCommandButton'
 
 // Languages that render as their own diagram/preview rather than plain code.
 const otherArtifacts = ['mermaid']
@@ -32,6 +35,8 @@ export const Code = ({
       <div className="flex items-center justify-between rounded-t-md p-1">
         <p className="text-xs opacity-50">{language}</p>
         <div className="flex items-center justify-center gap-3">
+          {/* Run an LLM-generated shell command — only when execution is enabled. */}
+          {getExecPolicy().enabled && isShellLanguage(language) && <RunCommandButton command={code} />}
           <CopyButton text={children} />
           {showToggle && (
             <>
