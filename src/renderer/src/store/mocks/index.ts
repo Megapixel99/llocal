@@ -81,6 +81,13 @@ export interface SavedPrompt {
   body: string
 }
 export const promptLibraryAtom = atomWithStorage<SavedPrompt[]>('promptLibrary', [])
+// Cross-conversation memory: durable facts recalled into the system prompt. Synced across devices.
+export interface MemoryItem {
+  id: string
+  text: string
+  createdAt: number
+}
+export const memoriesAtom = atomWithStorage<MemoryItem[]>('memories', [])
 export type MascotPhase = 'reading' | 'responding'
 export const mascotPhaseAtom = atom<MascotPhase | null>(null) // what the model is doing while generating: reading (thinking/researching) vs responding (writing)
 export const knowledgeBaseAtom = atom<getVectorDb[]>([]) // For storing the list of vector db's

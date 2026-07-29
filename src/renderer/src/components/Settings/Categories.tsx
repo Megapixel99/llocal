@@ -15,6 +15,7 @@ import { RepoConsole } from './RepoConsole'
 import { ScheduledTasks } from './ScheduledTasks'
 import { McpServers } from './McpServers'
 import { CustomInstructions } from './CustomInstructions'
+import { MemorySettings } from './MemorySettings'
 
 export const Categories = (): React.ReactElement => {
   // to maintain state of what is selected, this helps with choosing what to render
@@ -39,6 +40,7 @@ export const Categories = (): React.ReactElement => {
   )
 
   map.set('instructions', <CustomInstructions />)
+  map.set('memory', <MemorySettings />)
   map.set('knowledgeBase', <KnowLedgeBase />)
   map.set('server', <ServerSettings />)
   map.set('repo', <RepoConsole />)
@@ -50,6 +52,7 @@ export const Categories = (): React.ReactElement => {
       <Navbar className='sticky'>
         <NavbarItem className={`${selected == 'settings' && 'opacity-100'}`} onClick={() => setSelected('settings')}>{t("Settings")}</NavbarItem>
         <NavbarItem className={`${selected == 'instructions' && 'opacity-100'}`} onClick={() => setSelected('instructions')}>{t("Instructions")}</NavbarItem>
+        <NavbarItem className={`${selected == 'memory' && 'opacity-100'}`} onClick={() => setSelected('memory')}>{t("Memory")}</NavbarItem>
         <NavbarItem className={`${selected == 'knowledgeBase' && 'opacity-100'}`} onClick={() => setSelected('knowledgeBase')}>{t("Knowledge Base")}</NavbarItem>
         <NavbarItem className={`${selected == 'server' && 'opacity-100'}`} onClick={() => setSelected('server')}>{t("Server & Repository")}</NavbarItem>
         <NavbarItem className={`${selected == 'repo' && 'opacity-100'}`} onClick={() => setSelected('repo')}>{t("Repo & Console")}</NavbarItem>
