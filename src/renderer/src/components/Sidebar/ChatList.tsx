@@ -3,7 +3,7 @@ import { ComponentProps, useEffect, useMemo, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
 import { getDbReturn, useDb } from '@renderer/hooks/useDb'
 import { useAtom, useAtomValue } from 'jotai'
-import { selectedChatIndexAtom, streamingAtom, titleUpdateAtom } from '@renderer/store/mocks'
+import { selectedChatIndexAtom, streamingAtom, titleUpdateAtom, activeProjectIdAtom } from '@renderer/store/mocks'
 import { ChatMenu } from './ChatMenu/ChatMenu'
 import { t } from '@renderer/utils/utils'
 import { LuSearch } from 'react-icons/lu'
@@ -21,6 +21,7 @@ export const ChatList = ({ className, ...props }: ComponentProps<'div'>): React.
   const [stream] = useAtom(streamingAtom)
   const [query, setQuery] = useState('')
   const titleUpdate = useAtomValue(titleUpdateAtom)
+  const activeProjectId = useAtomValue(activeProjectIdAtom)
 
   useEffect(() => {
     async function getList(): Promise<void> {
@@ -42,7 +43,10 @@ export const ChatList = ({ className, ...props }: ComponentProps<'div'>): React.
   // grouping (results stay dated) — getMessageList already returns newest-first.
   const groups = useMemo(() => {
     const now = Date.now()
-    const filtered = chatList.filter((c) => chatMatchesQuery(c, query))
+    const filtered = chatList
+      // Scope to the active project (null = "All chats" shows everything).
+      .filter((c) => (activeProjectId ? c.projectId === activeProjectId : true))
+      .filter((c) => chatMatchesQuery(c, query))
     const byBucket = new Map<RecencyBucket, getDbReturn[]>()
     for (const c of filtered) {
       const b = recencyBucket(c.date, now)
@@ -51,7 +55,7 @@ export const ChatList = ({ className, ...props }: ComponentProps<'div'>): React.
       byBucket.set(b, arr)
     }
     return RECENCY_ORDER.filter((b) => byBucket.has(b)).map((b) => ({ bucket: b, chats: byBucket.get(b)! }))
-  }, [chatList, query])
+  }, [chatList, query, activeProjectId])
 
   const hasResults = groups.length > 0
 

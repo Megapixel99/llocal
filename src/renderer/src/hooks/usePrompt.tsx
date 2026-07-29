@@ -18,6 +18,8 @@ import {
   responseStyleAtom,
   attachedDocAtom,
   memoriesAtom,
+  projectsAtom,
+  activeProjectIdAtom,
   sessionMetricsAtom,
   stopGeneratingAtom,
   streamingAtom,
@@ -92,6 +94,8 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
   const responseStyle = useAtomValue(responseStyleAtom) // response-style preset
   const [attachedDoc, setAttachedDoc] = useAtom(attachedDocAtom) // in-chat document attachment
   const [memories, setMemories] = useAtom(memoriesAtom) // cross-conversation memory
+  const projects = useAtomValue(projectsAtom) // project definitions
+  const activeProjectId = useAtomValue(activeProjectIdAtom) // current project selection
   const firstChatRender = useRef(true)
   // The chat the in-flight request belongs to. Persisting a brand-new chat on send flips
   // selectedChatIndex, which would otherwise trip the abort-on-switch effect below and cancel the
@@ -156,9 +160,23 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
     const base = baseChat ?? chat
     // Custom instructions + response style → a system prompt for this turn ('' when unset). Injected
     // into the model call only; never stored in `base`/`chat`, so it isn't shown or persisted.
-    // System prompt for this turn = custom instructions + style + recalled memory.
+    // System prompt for this turn = custom instructions + style + recalled memory +
+    // the active project's instructions/knowledge (when a project is selected).
     const memoryBlock = buildMemoryBlock(memories.map((m) => m.text))
-    const systemInstructions = [buildSystemInstructions(customInstructions, responseStyle), memoryBlock]
+    const project = projects.find((p) => p.id === activeProjectId)
+    const projectBlock = project
+      ? [
+          project.instructions?.trim() ? `Project instructions:\n${project.instructions.trim()}` : '',
+          project.knowledge?.trim() ? `Project knowledge:\n${project.knowledge.trim()}` : ''
+        ]
+          .filter(Boolean)
+          .join('\n\n')
+      : ''
+    const systemInstructions = [
+      buildSystemInstructions(customInstructions, responseStyle),
+      projectBlock,
+      memoryBlock
+    ]
       .filter(Boolean)
       .join('\n\n')
 

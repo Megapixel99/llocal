@@ -3,6 +3,7 @@ import { ArtifactPanel } from './components/Chat/ArtifactPanel'
 import { InputForm } from './components/Chat/InputForm'
 import { Messages } from './components/Chat/Messages'
 import { ChatList } from './components/Sidebar/ChatList'
+import { ProjectBar } from './components/Sidebar/ProjectBar'
 import { NewChat } from './components/Sidebar/NewChat'
 import { SidebarTabs } from './components/Sidebar/SidebarTabs'
 import { Separator } from './ui/Separator'
@@ -76,6 +77,7 @@ function App(): JSX.Element {
           <SidebarTabs />
           <NewChat />
           <Separator />
+          <ProjectBar />
           <h1 className="">Your chats</h1>
           <div className="h-3/4 overflow-y-auto">
             <ChatList />
