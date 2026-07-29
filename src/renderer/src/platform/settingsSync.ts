@@ -19,9 +19,12 @@ import {
   prefModelAtom,
   transparencyModeAtom,
   backgroundImageAtom,
+  customInstructionsAtom,
+  responseStyleAtom,
   type Effort,
   type Verbosity
 } from '../store/mocks'
+import type { ResponseStyleId } from '../../../shared/styles'
 import { getServerConfig, isServerConfigured } from './config'
 import { fetchWithTimeout } from './serverClient'
 
@@ -48,7 +51,9 @@ const SETTINGS: SettingEntry[] = [
     key: 'transparencyMode',
     apply: (r) => { store.set(transparencyModeAtom, r === 'true'); localStorage.setItem('transparencyMode', r) }
   },
-  { key: 'bg', apply: (r) => { store.set(backgroundImageAtom, r); localStorage.setItem('bg', r) } }
+  { key: 'bg', apply: (r) => { store.set(backgroundImageAtom, r); localStorage.setItem('bg', r) } },
+  { key: 'customInstructions', apply: (r) => store.set(customInstructionsAtom, JSON.parse(r) as string) },
+  { key: 'responseStyle', apply: (r) => store.set(responseStyleAtom, JSON.parse(r) as ResponseStyleId) }
 ]
 
 const SETTINGS_KEYS = SETTINGS.map((s) => s.key)

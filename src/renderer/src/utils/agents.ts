@@ -119,18 +119,22 @@ User message: """${prompt}"""`
 export async function runReasoning(opts: {
   model: string
   messages: Message[]
+  /** User custom instructions / style, appended to the reasoning system prompt. */
+  instructions?: string
   onProgress: (composed: string) => void
   shouldStop: () => boolean
   onPhase?: (phase: BusyPhase) => void
 }): Promise<string> {
-  const { model, messages, onProgress, shouldStop, onPhase } = opts
+  const { model, messages, instructions, onProgress, shouldStop, onPhase } = opts
   onPhase?.('reading')
   const system = {
     role: 'system',
-    content: `You are a careful reasoning assistant. For the user's problem:
+    content:
+      `You are a careful reasoning assistant. For the user's problem:
 1. Put your full step-by-step reasoning inside a single <think>...</think> block: restate the problem, break it into sub-steps, work through each, and double-check your logic for mistakes.
 2. After </think>, give a clear, well-structured final answer. Do NOT repeat the raw reasoning in the answer — summarize conclusions.
-Always include the <think> block, even for short problems.`
+Always include the <think> block, even for short problems.` +
+      (instructions ? `\n\nAdditional user instructions:\n${instructions}` : '')
   }
   return streamComposed(getOllama(), model, [system, ...messages], onProgress, shouldStop, '', onPhase)
 }
@@ -144,11 +148,13 @@ export async function runDeepResearch(opts: {
   model: string
   prompt: string
   effort: Effort
+  /** User custom instructions / style, appended to the synthesis system prompt. */
+  instructions?: string
   onProgress: (composed: string) => void
   shouldStop: () => boolean
   onPhase?: (phase: BusyPhase) => void
 }): Promise<{ content: string; sources: string }> {
-  const { model, prompt, effort, onProgress, shouldStop, onPhase } = opts
+  const { model, prompt, effort, instructions, onProgress, shouldStop, onPhase } = opts
   const ollama = getOllama()
   const { queries: perRound, rounds } = EFFORT[effort]
   // The whole search sweep is "reading"; synthesis below flips to "responding".
@@ -220,7 +226,9 @@ ${evidence.join('\n\n').slice(0, 6000)}`
   const synthesisMessages = [
     {
       role: 'system',
-      content: `You are a research assistant. Using ONLY the search findings provided, write a clear, well-structured answer to the user's question. Cite claims inline with the linked source titles where possible. If the findings are insufficient, say so honestly. Do not fabricate facts or URLs.`
+      content:
+        `You are a research assistant. Using ONLY the search findings provided, write a clear, well-structured answer to the user's question. Cite claims inline with the linked source titles where possible. If the findings are insufficient, say so honestly. Do not fabricate facts or URLs.` +
+        (instructions ? `\n\nAdditional user instructions:\n${instructions}` : '')
     },
     {
       role: 'user',
