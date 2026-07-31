@@ -77,10 +77,14 @@
 }
 
 /* ---- state-specific props: hidden unless their state is active -------- */
-.m-only-read, .m-only-respond, .m-only-play, .m-only-celebrate { visibility: hidden; }
+.m-only-read, .m-only-respond, .m-only-play, .m-only-celebrate,
+.m-only-stretch, .m-only-wave, .m-only-sleep { visibility: hidden; }
 .llocal-mascot[data-state='reading'] .m-only-read { visibility: visible; }
 .llocal-mascot[data-state='responding'] .m-only-respond { visibility: visible; }
 .llocal-mascot[data-activity='play'] .m-only-play { visibility: visible; }
+.llocal-mascot[data-activity='stretch'] .m-only-stretch { visibility: visible; }
+.llocal-mascot[data-activity='wave'] .m-only-wave { visibility: visible; }
+.llocal-mascot[data-activity='sleep'] .m-only-sleep { visibility: visible; }
 .llocal-mascot[data-state='celebrate'] .m-only-celebrate { visibility: visible; }
 
 /* ---- responding: typing hands on the laptop --------------------------- */
@@ -126,6 +130,45 @@
   0% { opacity: 0; transform: scale(0.2) }
   40% { opacity: 1; transform: scale(1) }
   100% { opacity: 0; transform: scale(0.4) }
+}
+
+/* ---- idle stretch: arms reach up and the body gives a long stretch ---- */
+.m-arm { transform-origin: 50% 100%; }
+.llocal-mascot[data-activity='stretch'] .m-arm { animation: m-reach 2.6s ease-in-out infinite; }
+.llocal-mascot[data-activity='stretch'] .m-body { animation: m-stretch 2.6s ease-in-out infinite; }
+@keyframes m-reach {
+  0%, 100% { transform: translateY(2px) scaleY(0.9) }
+  45%, 65% { transform: translateY(-3px) scaleY(1.08) }
+}
+@keyframes m-stretch {
+  0%, 100% { transform: translateY(0) scaleY(1) }
+  45%, 65% { transform: translateY(-1.6px) scaleY(1.05) }
+}
+
+/* ---- idle wave: a hand swings a friendly hello ----------------------- */
+.m-wave-arm { transform-origin: 50% 100%; }
+.llocal-mascot[data-activity='wave'] .m-wave-arm { animation: m-wave 0.7s ease-in-out infinite; }
+@keyframes m-wave {
+  0%, 100% { transform: rotate(14deg) }
+  50% { transform: rotate(-20deg) }
+}
+
+/* ---- idle sleep: eyes close and Zzz drift up and fade ----------------- */
+.llocal-mascot[data-activity='sleep'] .m-eye { animation: none; transform: scaleY(0.12); }
+.llocal-mascot[data-activity='sleep'] .m-body { animation: m-doze 3.6s ease-in-out infinite; }
+@keyframes m-doze {
+  0%, 100% { transform: translateY(0) rotate(0deg) }
+  50% { transform: translateY(1px) rotate(2.5deg) }
+}
+.m-z { transform-origin: 50% 100%; opacity: 0; }
+.llocal-mascot[data-activity='sleep'] .m-z { animation: m-zzz 3s ease-in-out infinite; }
+.m-z-2 { animation-delay: 1s !important; }
+.m-z-3 { animation-delay: 2s !important; }
+@keyframes m-zzz {
+  0% { opacity: 0; transform: translate(0, 3px) scale(0.6) }
+  30% { opacity: 1; transform: translate(1px, 0) scale(1) }
+  70% { opacity: 0.8; transform: translate(2px, -2px) scale(1.05) }
+  100% { opacity: 0; transform: translate(3px, -5px) scale(1.1) }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -14,7 +14,8 @@ import './Mascot.css'
  * "Lo" — a tiny composer mascot that sits above the input box. While a prompt is
  * in flight it reads a little book when the model is thinking/researching and
  * types on a tiny laptop when it's writing the answer; it cheers when a run
- * finishes, and idles the rest of the time (peeking around or batting a ball).
+ * finishes, and idles the rest of the time (peeking around, batting a ball,
+ * stretching, waving hello, or dozing off).
  * All motion is CSS; this component only decides the state (via the pure
  * src/shared/mascot core) and paints the SVG. Opt-out via Preferences.
  */
@@ -76,6 +77,13 @@ export const Mascot = ({ className }: { className?: string }): React.ReactElemen
           <path className="m-spark m-spark-2" d="M58 12l1 2.4 2.4 1-2.4 1L58 20l-1-2.6-2.4-1 2.4-1z" />
         </g>
 
+        {/* idle sleep: drifting Zzz */}
+        <g className="m-only-sleep" fill="#8aa0ff" fontFamily="sans-serif" fontWeight="700">
+          <text className="m-z m-z-1" x="45" y="19" fontSize="6">z</text>
+          <text className="m-z m-z-2" x="49" y="13" fontSize="8">z</text>
+          <text className="m-z m-z-3" x="54" y="7" fontSize="10">z</text>
+        </g>
+
         {/* shadow */}
         <ellipse cx="36" cy="55" rx="17" ry="3" fill="#000" opacity="0.10" />
 
@@ -99,6 +107,17 @@ export const Mascot = ({ className }: { className?: string }): React.ReactElemen
             <ellipse className="m-eye" cx="31" cy="31" rx="2.4" ry="3.2" fill="#26304d" />
             <ellipse className="m-eye m-eye-2" cx="41" cy="31" rx="2.4" ry="3.2" fill="#26304d" />
             <path d="M33 37c1.4 1.4 4.6 1.4 6 0" stroke="#26304d" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+          </g>
+
+          {/* idle stretch: both arms reach way up for a big stretch */}
+          <g className="m-only-stretch">
+            <rect className="m-arm m-arm-l" x="17.4" y="20" width="3.4" height="14" rx="1.7" fill="#5570e6" />
+            <rect className="m-arm m-arm-r" x="51.2" y="20" width="3.4" height="14" rx="1.7" fill="#5570e6" />
+          </g>
+
+          {/* idle wave: a friendly waving hand held up on the right */}
+          <g className="m-only-wave">
+            <rect className="m-wave-arm" x="50.6" y="22" width="3.4" height="12" rx="1.7" fill="#5570e6" />
           </g>
 
           {/* responding: the laptop faces LO (away from us), so we see the back

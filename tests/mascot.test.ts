@@ -76,18 +76,22 @@ describe('pickIdleActivity', () => {
 
   it('advances one step per period and cycles', () => {
     const period = 5000
-    // The cycle is a fixed pattern of length 6; sample one value per bucket.
+    // The cycle is a fixed pattern of length 12; sample one value per bucket.
     const seq: IdleActivity[] = []
-    for (let i = 0; i < 6; i++) seq.push(pickIdleActivity(i * period + 1, period))
-    expect(seq).toEqual(['rest', 'rest', 'peek', 'rest', 'play', 'rest'])
+    for (let i = 0; i < 12; i++) seq.push(pickIdleActivity(i * period + 1, period))
+    expect(seq).toEqual([
+      'rest', 'rest', 'peek', 'rest', 'play', 'rest',
+      'stretch', 'rest', 'wave', 'rest', 'sleep', 'rest'
+    ])
     // wraps back around after a full cycle
-    expect(pickIdleActivity(6 * period + 1, period)).toBe('rest')
-    expect(pickIdleActivity(8 * period + 1, period)).toBe('peek')
+    expect(pickIdleActivity(12 * period + 1, period)).toBe('rest')
+    expect(pickIdleActivity(14 * period + 1, period)).toBe('peek')
+    expect(pickIdleActivity(20 * period + 1, period)).toBe('wave')
   })
 
-  it('only ever returns rest, peek, or play', () => {
-    const allowed = new Set<IdleActivity>(['rest', 'peek', 'play'])
-    for (let ms = 0; ms < 60000; ms += 700) {
+  it('only ever returns a known idle activity', () => {
+    const allowed = new Set<IdleActivity>(['rest', 'peek', 'play', 'stretch', 'wave', 'sleep'])
+    for (let ms = 0; ms < 120000; ms += 700) {
       expect(allowed.has(pickIdleActivity(ms))).toBe(true)
     }
   })
