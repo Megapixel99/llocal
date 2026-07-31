@@ -23,6 +23,7 @@ Aiming to provide a seamless and privacy driven chatting experience with open-so
 - Multiple themes (5 themes all suporting both light and dark mode)
 - Seamless integration with Ollama, from download to install.
 - Slash commands — reusable prompt templates in the Claude Code format (works with collections like [wshobson/commands](https://github.com/wshobson/commands)).
+- Meet **Lo**, a little composer mascot that reacts as you chat — reading while the model thinks, typing while it answers, and celebrating when it's done (opt out in Preferences).
 
 ### Slash commands
 
@@ -35,6 +36,26 @@ Commands are plain markdown files, discovered from (highest priority first):
 3. A few examples bundled with the app.
 
 A command file's name is the command name and sub-folders become `:`-separated namespaces (so `tools/api-scaffold.md` is invoked as `/tools:api-scaffold`). Optional YAML frontmatter (`description`, `argument-hint`, `model`, `allowed-tools`) is used for the picker.
+
+### Meet Lo
+
+Lo is a tiny mascot that perches above the chat composer and reacts to what the app is doing — so the interface feels alive without getting in your way.
+
+<img src="docs/mascot/in-context.png" alt="Lo perched above the chat composer" width="720" />
+
+It cycles through four states, and looks right at home in both light and dark themes:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/mascot/states-dark.png" />
+  <img src="docs/mascot/states-light.png" alt="Lo's four states: idle, reading, responding and celebrate" width="720" />
+</picture>
+
+- **idle** — resting between messages (it occasionally peeks around or bats a little ball).
+- **reading** — the model is thinking or running a DeepResearch web sweep; Lo scans an open book.
+- **responding** — the model is writing the answer; Lo types on a tiny laptop.
+- **celebrate** — a brief cheer when a run finishes.
+
+Prefer a quieter UI? Turn Lo off any time in **Settings → Preferences → Mascot**.
 
 ## What's ahead?
 
