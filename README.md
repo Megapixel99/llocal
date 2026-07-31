@@ -11,19 +11,43 @@ Aiming to provide a seamless and privacy driven chatting experience with open-so
 
 ## What can LLocal do?
 
-- Llocaly store chats.
-- Llocal utilizes Ollama which ensures that from processing to utilizing everything happens on your machine LLocally.
-- Seamlessly switch between models.
-- Easily pull new models.
-- Image upload for models that support vision.
-- Web search (i.e Website scraper aswell as duckduckgo search inbuilt) for all models.
-- Chat with Files with persistence through vector db's being stored llocally. (Supported file types are PDF, PPTX, DOCX, CSV & TXT)
-- Responses are rendered as markdown (Supporting Code Blocks with syntax highlighting, tabular formats and much more).
-- Live preview for web based code blocks (HTML, CSS, SVG & JavaScript) rendered safely in a sandbox, with a console panel and fullscreen view.
-- Multiple themes (5 themes all suporting both light and dark mode)
-- Seamless integration with Ollama, from download to install.
-- Slash commands — reusable prompt templates in the Claude Code format (works with collections like [wshobson/commands](https://github.com/wshobson/commands)).
-- Meet **Lo**, a little composer mascot that reacts as you chat — reading while the model thinks, typing while it answers, and celebrating when it's done (opt out in Preferences).
+Everything runs on your own machine through Ollama — from the model weights to your chat history, nothing leaves your computer. LLocal handles the Ollama integration for you, from download to install.
+
+**Chat**
+
+- Store chats locally, then search, organize, and mark them unread.
+- Switch between models mid-conversation and pull new ones — or browse the whole Ollama library from an in-app **model catalogue**.
+- Upload images to vision-capable models.
+- Web search for any model (built-in website scraper + DuckDuckGo).
+- **Chat with files** via RAG backed by a locally-stored vector database (PDF, PPTX, DOCX, CSV & TXT), reusable as a **Knowledge Base**.
+- Responses render as markdown — code blocks with syntax highlighting, tables, and `<think>` reasoning shown in a collapsible "chain of thought".
+- **Live preview** for web code (HTML, CSS, SVG & JavaScript) in a sandbox with a console and fullscreen view, plus an **Artifacts** panel; edit or retry any message.
+- Text-to-speech for spoken replies.
+- Two agents auto-routed behind the plain chat box — **Reasoning** (step-by-step thinking on any model) and **DeepResearch** (bounded, cited web research whose depth follows an effort level).
+- **Compact** long conversations to summarize older turns and free up the context window.
+
+**Make it yours**
+
+- Custom instructions and response-style presets.
+- **Memory** that carries facts across conversations (just say "remember …").
+- **Projects** that group chats and inject shared instructions + knowledge.
+- A **prompt library** and **slash commands** — reusable prompt templates in the Claude Code format (works with collections like [wshobson/commands](https://github.com/wshobson/commands)).
+- Five themes (each with light & dark mode), custom backgrounds, and **Lo**, a little composer mascot that reacts as you chat.
+
+**Build — the Agent tab**
+
+- A coding agent that edits files with approve-each-change control.
+- Run shell commands the model proposes — approve-each and allowlisted.
+- An interactive, streaming terminal panel.
+- Browse a Git/GitHub repo and open PRs.
+- **Swarm** — decompose a task into subagents that run in parallel.
+- Connect external **MCP** (Model Context Protocol) servers; their tools join the agent under the same approval flow.
+
+**Across your devices**
+
+- A **companion server** syncs chats and settings between devices ([see below](#companion-server-for-the-mobile--web-app)).
+- A **mobile app** (iOS via Capacitor) with QR-code pairing.
+- **Scheduled tasks** that run a prompt on a cron schedule.
 
 ### Slash commands
 
@@ -63,7 +87,7 @@ Prefer a quieter UI? Turn Lo off any time in **Settings → Preferences → Masc
 - Web Search ☑️ (purple because, it still can be improved)
 - Retrieval Augmented Generation/RAG (with single PDF's) ✅
 - Multiple PDF chat ✅
-- Ollama Model Catalogue (Information about all models)
+- Ollama Model Catalogue (Information about all models) ✅
 - Support for `<think />` code blocks ✅
 - Agents, the first two would be `DeepResearch` and `Reasoning` ✅ (auto-routed in Chat — the app decides when to reason or research; DeepResearch depth is set by an effort level)
 - Code live preview for web based code (Something like what Claude Provides) ✅
