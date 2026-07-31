@@ -6,8 +6,9 @@
  *   - reading    — the model is thinking or researching (a `<think>` block or a
  *                  DeepResearch web sweep); Lo reads a little book;
  *   - responding — the model is writing the answer; Lo types on a tiny laptop.
- * When a run finishes it celebrates briefly, and otherwise it idles —
- * occasionally peeking around or batting a little ball while it waits.
+ * When a run finishes it celebrates briefly, and otherwise it idles — resting
+ * mostly, but now and then peeking around, batting a little ball, having a big
+ * stretch, waving hello, or dozing off for a moment while it waits.
  *
  * Like the other cores in src/shared, this file is pure and deterministic (it
  * never reads the clock — callers pass `now` / elapsed time), so the animation
@@ -21,8 +22,16 @@ export type MascotState = 'idle' | 'reading' | 'responding' | 'celebrate'
 /** What the model is doing while busy. */
 export type BusyPhase = 'reading' | 'responding'
 
-/** Sub-activity used while idling, to give the mascot a bit of life. */
-export type IdleActivity = 'rest' | 'peek' | 'play'
+/**
+ * Sub-activity used while idling, to give the mascot a bit of life:
+ *   - rest    — the calm default bob;
+ *   - peek    — glances left and right;
+ *   - play    — bats a little bouncing ball;
+ *   - stretch — reaches its arms up for a big stretch;
+ *   - wave    — waves a friendly hello;
+ *   - sleep   — dozes off with drifting "Zzz".
+ */
+export type IdleActivity = 'rest' | 'peek' | 'play' | 'stretch' | 'wave' | 'sleep'
 
 /** How long the celebration plays after a run finishes (ms). */
 export const CELEBRATE_MS = 1600
@@ -74,11 +83,26 @@ export function streamPhase(content: string, thinkingLength: number): BusyPhase 
 }
 
 /**
- * The idle "personality" loop: mostly resting, with an occasional peek around
- * or a little game of ball. Driven purely by how long it's been idle so the
- * choice is deterministic and testable. `idleMs` is clamped at 0.
+ * The idle "personality" loop: mostly resting, with an occasional peek around,
+ * a little game of ball, a big stretch, a friendly wave, or a short doze. Each
+ * lively beat is separated by a rest so the mascot never feels frantic. Driven
+ * purely by how long it's been idle so the choice is deterministic and
+ * testable. `idleMs` is clamped at 0.
  */
-const IDLE_CYCLE: readonly IdleActivity[] = ['rest', 'rest', 'peek', 'rest', 'play', 'rest']
+const IDLE_CYCLE: readonly IdleActivity[] = [
+  'rest',
+  'rest',
+  'peek',
+  'rest',
+  'play',
+  'rest',
+  'stretch',
+  'rest',
+  'wave',
+  'rest',
+  'sleep',
+  'rest'
+]
 
 export function pickIdleActivity(idleMs: number, periodMs = 5000): IdleActivity {
   const ms = idleMs > 0 ? idleMs : 0
