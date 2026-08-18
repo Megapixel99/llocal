@@ -28,8 +28,10 @@ import {
 } from '@renderer/store/mocks'
 import { streamPhase } from '../../../shared/mascot'
 import { buildSystemInstructions } from '../../../shared/styles'
+import { buildSystemPrompt, buildUserLayer, currentEnvironment } from '../../../shared/prompt'
+import { modelOptions } from '../../../shared/model-options'
 import { parseRememberCommand, buildMemoryBlock } from '../../../shared/memory'
-import { getOllama } from '@renderer/utils/ollama'
+import { getModelContext, getOllama } from '@renderer/utils/ollama'
 // import axios from 'axios'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useEffect, useRef, useState } from 'react'
@@ -50,21 +52,6 @@ interface userContentType {
   content: string
   images?: string[]
 }
-
-// Ollama's /api/show exposes the model's context length under an architecture-prefixed key,
-// e.g. "llama.context_length" or "gemma3.context_length". model_info is a Map (older builds used a
-// plain object), so we handle both and look up whichever key ends in ".context_length".
-function extractContextLength(info: { model_info?: Map<string, unknown> | Record<string, unknown> }): number {
-  const modelInfo = info?.model_info
-  if (!modelInfo) return 0
-  const entries = modelInfo instanceof Map ? modelInfo : new Map(Object.entries(modelInfo))
-  for (const [key, value] of entries) {
-    if (key.endsWith('.context_length')) return Number(value) || 0
-  }
-  return 0
-}
-
-
 
 export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) => Promise<void>] {
   // Defining states
@@ -132,15 +119,10 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
   useEffect(() => {
     if (!modelName) return
     let cancelled = false
-    getOllama()
-      .show({ model: modelName })
-      .then((info) => {
-        if (cancelled) return
-        setContextUsage((pre) => ({ ...pre, total: extractContextLength(info) }))
-      })
-      .catch(() => {
-        /* older Ollama / missing model — leave total at its previous value */
-      })
+    getModelContext(modelName).then((total) => {
+      if (cancelled || !total) return
+      setContextUsage((pre) => ({ ...pre, total }))
+    })
     return () => {
       cancelled = true
     }
@@ -172,13 +154,14 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
           .filter(Boolean)
           .join('\n\n')
       : ''
-    const systemInstructions = [
-      buildSystemInstructions(customInstructions, responseStyle),
-      projectBlock,
-      memoryBlock
-    ]
-      .filter(Boolean)
-      .join('\n\n')
+    // The user layer (custom instructions + style, project, memory) is kept separate from the
+    // base prompt: each flow below composes it into its own system prompt, so chat, reasoning
+    // and research all speak with the same voice and honour the same configuration.
+    const userLayer = buildUserLayer({
+      instructions: buildSystemInstructions(customInstructions, responseStyle),
+      project: projectBlock,
+      memory: memoryBlock
+    })
 
     // Explicit "remember …" capture: store the fact (still send the message normally).
     const remembered = parseRememberCommand(prompt)
@@ -196,6 +179,7 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
     const docPrefix = attachedDoc
       ? `The user attached a document "${attachedDoc.name}". Use its contents to answer.\n"""\n${attachedDoc.text}\n"""\n\n`
       : ''
+    const attachedDocName = attachedDoc?.name ?? ''
     if (attachedDoc) setAttachedDoc(null)
     const withDoc = (text: string): string => docPrefix + text
     try {
@@ -321,7 +305,7 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
             const composed = await runReasoning({
               model: modelName,
               messages: [...base, docPrefix ? { ...initialUser, content: withDoc(initialUser.content) } : initialUser],
-              instructions: systemInstructions,
+              instructions: userLayer,
               onProgress: (t) => setStream(t),
               shouldStop: () => stopGeneratingRef.current,
               onPhase: setMascotPhase
@@ -346,7 +330,7 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
               model: modelName,
               prompt: withDoc(prompt),
               effort,
-              instructions: systemInstructions,
+              instructions: userLayer,
               onProgress: (t) => setStream(t),
               shouldStop: () => stopGeneratingRef.current,
               onPhase: setMascotPhase
@@ -415,12 +399,27 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
       // Reasoning models (gpt-oss / harmony format) can route their reasoning into Ollama's separate
       // `message.thinking` field via the `think` option, instead of leaking raw <|channel|> tokens into
       // the content. Not every model accepts the option, so we fall back to a plain request if it's rejected.
-      // Prepend the custom-instructions/style system prompt for this turn (if any),
-      // and fold any attached document into the (sent-only) user message.
+      // Fold any attached document into the (sent-only) user message.
       const sentUser = docPrefix ? { ...user, content: withDoc(user.content) } : user
-      const chatMessages = systemInstructions
-        ? [{ role: 'system', content: systemInstructions }, ...base, sentUser]
-        : [...base, sentUser]
+      // One system message per turn: base behaviour + environment + the user's configuration.
+      // Notes cover what is unusual about THIS turn, so the model knows where the extra text in
+      // the user message came from instead of treating a pasted document as the question.
+      const notes = [
+        attachedDocName
+          ? `The user attached the document "${attachedDocName}"; its text is included in their message.`
+          : '',
+        sources
+          ? 'Search results and retrieved passages are included in the user message. Ground your answer in them and cite their links.'
+          : ''
+      ].filter(Boolean)
+      const systemPrompt = buildSystemPrompt({
+        mode: 'chat',
+        model: modelName,
+        user: userLayer,
+        notes,
+        ...currentEnvironment()
+      })
+      const chatMessages = [{ role: 'system', content: systemPrompt }, ...base, sentUser]
       let response
       try {
         response = await ollama.chat({
@@ -498,19 +497,38 @@ export function usePrompt(): [boolean, (prompt: string, baseChat?: Message[]) =>
       // TODO: use Structured outputs here aswell
       // incase suggestions are toggled on
       if (suggestions.show) {
-        // the JSON mode prompt
-        const suggestionsPrompt = `You are a helpful AI agent, you need to output suggested follow up questions
-based on the following context:\n ${chunk}
-The follow up questions, must be on how you as an AI can help but from the perspective of a user asking you the question
-The suggestions you generate must be prompts suitable for querying a Large Language Model (LLM).
-and you **NEED** to strictly follow the following output schema:
-{suggestions: string[]}`
-        // making the api call
-        const suggestionsResponse = await ollama.generate({ prompt: suggestionsPrompt, stream: false, model: modelName, format: "json" })
-        const prompts = JSON.parse(suggestionsResponse.response).suggestions
-        // this check is actually not perfect since it only checks for an array and not explicity an array of strings
-        if (Array.isArray(prompts)) setSuggestions((pre) => ({ ...pre, prompts: prompts }))
-        else setSuggestions((pre) => ({ ...pre, prompts: [] })) // incase it's not an array we enforce a defualt value
+        // Written in the user's voice ("How do I..."), not the assistant's, because a chosen
+        // suggestion is sent as the user's next message.
+        const suggestionsPrompt = `Read the exchange below and write 3 follow-up questions the USER might ask next.
+
+Rules:
+- Write each one in the user's voice, the way they would type it. Not "Would you like me to...".
+- Keep each under 12 words, specific to what was just discussed, and non-overlapping.
+- No numbering and no quotes.
+
+Reply with strict JSON and nothing else: {"suggestions": string[]}
+
+User asked: ${prompt}
+
+Assistant replied: ${chunk.slice(0, 4000)}`
+        // Suggestions are a nicety: a malformed payload must not surface as an error toast on an
+        // otherwise good turn, so a failure just leaves the row empty.
+        try {
+          const suggestionsResponse = await ollama.generate({
+            prompt: suggestionsPrompt,
+            stream: false,
+            model: modelName,
+            format: 'json',
+            options: modelOptions({ deterministic: true, numPredict: 200 })
+          })
+          const prompts = JSON.parse(suggestionsResponse.response).suggestions
+          // this check is actually not perfect since it only checks for an array and not explicity an array of strings
+          if (Array.isArray(prompts))
+            setSuggestions((pre) => ({ ...pre, prompts: prompts.map(String).slice(0, 3) }))
+          else setSuggestions((pre) => ({ ...pre, prompts: [] })) // incase it's not an array we enforce a defualt value
+        } catch {
+          setSuggestions((pre) => ({ ...pre, prompts: [] }))
+        }
       }
       // clearing states as required
       setExperimentalSearch(false)

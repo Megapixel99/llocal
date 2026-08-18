@@ -4,6 +4,7 @@
  * by one summary message; the most recent turns are kept verbatim.
  */
 import { getOllama } from './ollama'
+import { modelOptions } from '../../../shared/model-options'
 import type { Message } from '../store/mocks'
 
 /** How many of the most recent messages to keep verbatim when compacting. */
@@ -30,16 +31,19 @@ function transcript(messages: Message[]): string {
  */
 export async function summarizeConversation(model: string, messages: Message[]): Promise<string> {
   const ollama = getOllama()
+  const summarizerMessages = [
+    {
+      role: 'system',
+      content: `You compress a conversation so it can continue without losing context. Produce a dense summary that preserves: key facts and decisions, any code/identifiers/file paths, the user's goals and preferences, and unresolved questions or next steps. Use compact bullet points. Do NOT add commentary or address the user — output only the summary.`
+    },
+    { role: 'user', content: `Summarize this conversation so far:\n\n${transcript(messages)}` }
+  ]
+  // Pinned sampling: the summary is machinery the next turn reads, not prose for the user.
   const res = await ollama.chat({
     model,
     stream: false,
-    messages: [
-      {
-        role: 'system',
-        content: `You compress a conversation so it can continue without losing context. Produce a dense summary that preserves: key facts and decisions, any code/identifiers/file paths, the user's goals and preferences, and unresolved questions or next steps. Use compact bullet points. Do NOT add commentary or address the user — output only the summary.`
-      },
-      { role: 'user', content: `Summarize this conversation so far:\n\n${transcript(messages)}` }
-    ]
+    messages: summarizerMessages,
+    options: modelOptions({ deterministic: true })
   })
   return res.message?.content?.trim() ?? ''
 }

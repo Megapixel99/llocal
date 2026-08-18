@@ -1,5 +1,6 @@
 import { getOllama } from '@renderer/utils/ollama'
 import { parseHarmony } from '@renderer/utils/utils'
+import { buildSystemPrompt, currentEnvironment } from '../../../shared/prompt'
 import { isMcpToolName, type McpServer } from '../../../shared/mcp'
 import { runReasoning, runDeepResearch } from '@renderer/utils/agents'
 import type { Effort } from '@renderer/store/mocks'
@@ -184,13 +185,18 @@ export async function runAgentLoop(opts: {
       ? ''
       : `\nCRITICAL: To change a file you MUST call the write_file tool with the full new file contents. Describing an edit in text does NOT change anything — if you did not call write_file, the file is unchanged. Never say you edited or created a file unless you actually called write_file for it in this conversation.`
 
+  // Shared base prompt (identity, brevity, honesty, formatting) + the agent-loop specifics.
   const system = {
     role: 'system',
-    content: `You are a coding agent working inside the folder: ${root}
-Use the provided tools to inspect${mode === 'plan' ? '' : ', modify,'} the project${mode === 'plan' ? '' : ' and run commands'}. Paths are relative to that folder.
-Work step by step: read/list/search to understand before ${mode === 'plan' ? 'planning' : 'changing anything'}.
-For a hard sub-problem, call \`${REASON_TOOL_NAME}\` to think it through step by step before acting. For anything outside this codebase — library or API docs, package versions, an unfamiliar error, current facts — call \`${DEEP_RESEARCH_TOOL_NAME}\` to look it up on the web (it returns a cited summary).${delegateNote}
-When the task is complete, stop calling tools and give a short summary.${editRule}${planNote}${roleNote}`
+    content: `${buildSystemPrompt({
+      mode: 'agent',
+      model,
+      workspace: root,
+      ...currentEnvironment()
+    })}
+
+Use the provided tools to inspect${mode === 'plan' ? '' : ', modify,'} the project${mode === 'plan' ? '' : ' and run commands'}.
+For a hard sub-problem, call \`${REASON_TOOL_NAME}\` to think it through step by step before acting. For anything outside this codebase — library or API docs, package versions, an unfamiliar error, current facts — call \`${DEEP_RESEARCH_TOOL_NAME}\` to look it up on the web (it returns a cited summary).${delegateNote}${editRule}${planNote}${roleNote}`
   }
 
   const working: AnyMessage[] = [system, ...opts.messages]

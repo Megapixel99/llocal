@@ -10,6 +10,8 @@
  */
 import { getOllama } from '@renderer/utils/ollama'
 import { composeAssistantMessage, findUrls, parseHarmony } from '@renderer/utils/utils'
+import { buildSystemPrompt, currentEnvironment } from '../../../shared/prompt'
+import { modelOptions } from '../../../shared/model-options'
 import { streamPhase, type BusyPhase } from '../../../shared/mascot'
 import type { Effort, Message } from '@renderer/store/mocks'
 
@@ -82,7 +84,8 @@ async function generateJson(
       prompt,
       stream: false,
       format: 'json',
-      ...(numPredict ? { options: { num_predict: numPredict } } : {})
+      // Machine-read output: pin sampling so routing and query generation are stable.
+      options: modelOptions({ deterministic: true, numPredict })
     })
     return JSON.parse(res.response)
   } catch {
@@ -129,12 +132,12 @@ export async function runReasoning(opts: {
   onPhase?.('reading')
   const system = {
     role: 'system',
-    content:
-      `You are a careful reasoning assistant. For the user's problem:
-1. Put your full step-by-step reasoning inside a single <think>...</think> block: restate the problem, break it into sub-steps, work through each, and double-check your logic for mistakes.
-2. After </think>, give a clear, well-structured final answer. Do NOT repeat the raw reasoning in the answer — summarize conclusions.
-Always include the <think> block, even for short problems.` +
-      (instructions ? `\n\nAdditional user instructions:\n${instructions}` : '')
+    content: buildSystemPrompt({
+      mode: 'reason',
+      model,
+      user: instructions,
+      ...currentEnvironment()
+    })
   }
   return streamComposed(getOllama(), model, [system, ...messages], onProgress, shouldStop, '', onPhase)
 }
@@ -226,9 +229,12 @@ ${evidence.join('\n\n').slice(0, 6000)}`
   const synthesisMessages = [
     {
       role: 'system',
-      content:
-        `You are a research assistant. Using ONLY the search findings provided, write a clear, well-structured answer to the user's question. Cite claims inline with the linked source titles where possible. If the findings are insufficient, say so honestly. Do not fabricate facts or URLs.` +
-        (instructions ? `\n\nAdditional user instructions:\n${instructions}` : '')
+      content: buildSystemPrompt({
+        mode: 'research',
+        model,
+        user: instructions,
+        ...currentEnvironment()
+      })
     },
     {
       role: 'user',

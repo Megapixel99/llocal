@@ -115,7 +115,18 @@ const RenameModal = ({ className, date, children, ...props }: ChatListModalProps
     const id = toast.loading("Generating a title...")
     const chat = await getChat(date)
     let response: null | FormFields
-    response = await getStructuredResponse(JSON.stringify(chat), Title, "Based on the chat history give, generate an apt title. Keep concise and short.")
+    // Feed the model readable turns rather than a JSON dump of the whole chat: the title comes from
+    // what the conversation is about, which the opening exchange already says.
+    const opening = (chat ?? [])
+      .slice(0, 4)
+      .map((m: { role: string; content: string }) => `${m.role}: ${m.content}`)
+      .join('\n\n')
+      .slice(0, 4000)
+    response = await getStructuredResponse(
+      opening || JSON.stringify(chat),
+      Title,
+      'Name this conversation the way a person would label it in a sidebar: 2-5 words, no quotes, no trailing punctuation, no "Chat about". Name the actual subject.'
+    )
     if (!response) toast.error("Title could not be generated", { id })
     else {
       toast.dismiss(id)
