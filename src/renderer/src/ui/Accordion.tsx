@@ -1,5 +1,5 @@
 import { VariantProps, cva } from "class-variance-authority";
-import React, { ComponentProps, useState } from "react";
+import React, { ComponentProps, ReactNode, useState } from "react";
 import { Card } from "./Card";
 import { cn } from "@renderer/utils/utils";
 import { IoIosArrowDown } from "react-icons/io";
@@ -14,9 +14,11 @@ const AccordionVariants = cva('', {
     variant: 'base'
   }
 })
-interface AccordionProps extends ComponentProps<'div'>, VariantProps<typeof AccordionVariants> {
+// 'content' is omitted from the div props: the DOM attribute of that name is a string, while here
+// it is the rendered body of the accordion.
+interface AccordionProps extends Omit<ComponentProps<'div'>, 'content'>, VariantProps<typeof AccordionVariants> {
   title: string,
-  content: string,
+  content: ReactNode,
   loading?: boolean,
   initialOpen?: boolean
 }

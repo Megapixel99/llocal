@@ -15,25 +15,33 @@ vi.mock('@renderer/components/Chat/Messages/ExportDocument', () => ({ ExportDocu
 vi.mock('@renderer/components/Chat/Messages/Branch', () => ({ Branch: () => null }))
 
 import { AiMessage } from '../src/renderer/src/ui/Message'
+import { composeAssistantMessage } from '../src/renderer/src/utils/utils'
 import { verbosityAtom, Verbosity } from '../src/renderer/src/store/mocks'
 
-// Multi-paragraph, like a real reasoning trace — react-markdown yields an array of block children
-// (which the <think> renderer requires); a single text node would be dropped as non-reasoning.
+// Multi-paragraph, like a real reasoning trace.
 const REASON_MARK = 'Reason line A'
-const REASONING = `${REASON_MARK}.\n\nReason line B.`
+const REASON_TAIL = 'Reason line B'
+const REASONING = `${REASON_MARK}.\n\n${REASON_TAIL}.`
 const ANSWER = 'FINAL_ANSWER_TEXT'
-// Blank lines around the reasoning so markdown parses it into its own block children (an array) —
-// the shape a real multi-paragraph reasoning trace produces and that the <think> renderer requires.
-const MESSAGE = `<think>\n\n${REASONING}\n\n</think>\n\n${ANSWER}`
+// Built with composeAssistantMessage so the tests see exactly what the app stores. An earlier
+// version of this file hand-wrote blank lines around the reasoning, which happened to keep the old
+// raw-<think> renderer working and hid the bug where every paragraph after the first escaped the
+// accordion and rendered as part of the answer.
+const MESSAGE = composeAssistantMessage(REASONING, ANSWER)
 
-function renderAt(verbosity: Verbosity) {
+function renderAt(verbosity: Verbosity, stream = false) {
   const store = createStore()
   store.set(verbosityAtom, verbosity)
   return render(
     <Provider store={store}>
-      <AiMessage message={MESSAGE} stream={false} />
+      <AiMessage message={MESSAGE} stream={stream} />
     </Provider>
   )
+}
+
+/** The collapsible body of the accordion, whichever state it is in. */
+function accordionBody(container: HTMLElement): HTMLElement | null {
+  return container.querySelector('[class*="grid-rows-"]')
 }
 
 /**
@@ -55,6 +63,25 @@ describe('AiMessage reasoning display (verbosity)', () => {
     expect(container.textContent).toContain(REASON_MARK) // in the DOM...
     expect(container.textContent).toContain('Chain of thought')
     expect(container.innerHTML).toContain('grid-rows-[0fr]') // ...but collapsed
+  })
+
+  it('normal: the WHOLE reasoning trace stays inside the collapsed accordion', () => {
+    const { container } = renderAt('normal')
+    const body = accordionBody(container)
+    // Every paragraph, not just the first — the regression this guards.
+    expect(body?.textContent).toContain(REASON_MARK)
+    expect(body?.textContent).toContain(REASON_TAIL)
+    // ...and none of it leaks into the answer alongside it.
+    expect(body?.textContent).not.toContain(ANSWER)
+  })
+
+  it('normal: expands while streaming, collapses once the answer lands', () => {
+    const streaming = renderAt('normal', true)
+    expect(streaming.container.innerHTML).toContain('grid-rows-[1fr]')
+    expect(streaming.container.textContent).toContain('Thinking')
+    cleanup()
+    const done = renderAt('normal')
+    expect(done.container.innerHTML).toContain('grid-rows-[0fr]')
   })
 
   it('thinking: reasoning in an expanded accordion', () => {
