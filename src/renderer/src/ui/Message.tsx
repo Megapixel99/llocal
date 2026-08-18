@@ -10,7 +10,7 @@ import remarkGfm from 'remark-gfm'
 import SyntaxHighlighter from 'react-syntax-highlighter'
 import { Code } from "./Code";
 import { Accordion } from "./Accordion";
-import { customTagValidator, formatCustomBlock, t } from "@renderer/utils/utils";
+import { splitThinking, t } from "@renderer/utils/utils";
 import { BreadCrumb } from "./BreadCrumb";
 import { BsGlobeCentralSouthAsia } from "react-icons/bs";
 import { Table } from "./Table";
@@ -26,88 +26,83 @@ interface Message extends ComponentProps<'div'> {
 }
 
 export const AiMessage = ({ message, stream, index = 0, ...props }: Message): React.ReactElement => {
-  // TODO: Expand this to support multiple custom tags, at the moment it only supports <think></think>
-
   // Reasoning-display preference (display only; the model still generates the same text).
   const verbosity = useAtomValue(verbosityAtom)
   const { retry } = useMessageActions()
 
-  // this is crucial, since during streaming we need to see the custom tag irrespective.
-  // the validation, invalidate's it which is technically correct, but UX wise incorrect.
-  let validation = true // optimistic validation
-  if (!stream) {
-    validation = customTagValidator(message, 'think')
-    if (validation) message = formatCustomBlock(message, 'think')
-  }
+  // Reasoning is separated from the answer here rather than being handed to react-markdown as a
+  // raw <think> element: a blank line ends an HTML block, so anything past the first paragraph
+  // used to escape the accordion and render as part of the answer.
+  const { thinking, content } = splitThinking(message)
+
+  const answer = (
+    <Markdown
+      className="markdown"
+      // Raw HTML is only trusted mid-stream, matching the previous behaviour for messages that
+      // carry no reasoning block.
+      rehypePlugins={stream ? [rehypeRaw] : []}
+      remarkPlugins={[remarkGfm]}
+      components={{
+        a: (props) => {
+          return (
+            <a
+              href={props.href}
+              className=""
+              target="_blank"
+              rel="noreferrer"
+            >
+              <BreadCrumb className=" w-1/6 max-w-fit truncate inline-block">
+                <BsGlobeCentralSouthAsia className="inline-flex mr-1" />
+                {props.children}
+              </BreadCrumb>
+            </a>
+          )
+        },
+        table: (props) => {
+          return <Table {...props} />
+        },
+        code(props) {
+          const myRef = useRef<SyntaxHighlighter>(null)
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { children, className, node, ...rest } = props
+
+          const match = /language-(\w+)/.exec(className || '')
+          return match ? (
+            <Code language={match[1]} ref={myRef}>
+              {String(children).replace(/\n$/, '')}
+            </Code>
+          ) : (
+            <code {...rest} className={className + " text-wrap"}>
+              {children}
+            </code>
+          )
+        },
+      }}
+    >
+      {content}
+    </Markdown>
+  )
+
+  // summary: hide the reasoning. verbose: inline, nothing collapsed. normal: collapsed once the
+  // answer lands (open only while it streams). thinking: kept expanded.
+  const reasoning =
+    !thinking || verbosity === 'summary' ? null : verbosity === 'verbose' ? (
+      <div className="markdown my-2 border-l-2 border-foreground/20 pl-3 text-sm opacity-70">
+        <Markdown remarkPlugins={[remarkGfm]}>{thinking}</Markdown>
+      </div>
+    ) : (
+      <Accordion
+        title={stream ? t('Thinking') : t('Chain of thought')}
+        content={<Markdown className="markdown text-sm" remarkPlugins={[remarkGfm]}>{thinking}</Markdown>}
+        loading={stream}
+        initialOpen={verbosity === 'thinking' || !!stream}
+      />
+    )
 
   return <div className="group space-y-2 transition-all">
     <Card className="w-fit" {...props}>
-      <Markdown
-        className="markdown"
-        rehypePlugins={validation ? [rehypeRaw] : []}
-        remarkPlugins={[remarkGfm]}
-        components={{
-          // @ts-ignore because
-          think: (data) => {
-            if (data.children?.constructor != Array) return <></>
-            // Summary: hide the reasoning entirely (answer only).
-            if (verbosity === 'summary') return <></>
-            // Verbose: show the reasoning inline alongside the answer — nothing collapsed.
-            if (verbosity === 'verbose')
-              return (
-                <div className="markdown my-2 border-l-2 border-foreground/20 pl-3 text-sm opacity-70">
-                  {data.children}
-                </div>
-              )
-            // Normal: collapse once finished (open only while streaming). Thinking: keep it expanded.
-            const open = verbosity === 'thinking' ? true : stream
-            return (
-              <Accordion
-                title={stream ? "Thinking" : "Chain of thought"}
-                content={data.children}
-                loading={stream}
-                initialOpen={open}
-              />
-            )
-          },
-          a: (props) => {
-            return (
-              <a
-                href={props.href}
-                className=""
-                target="_blank"
-                rel="noreferrer"
-              >
-                <BreadCrumb className=" w-1/6 max-w-fit truncate inline-block">
-                  <BsGlobeCentralSouthAsia className="inline-flex mr-1" />
-                  {props.children}
-                </BreadCrumb>
-              </a>
-            )
-          },
-          table: (props) => {
-            return <Table {...props} />
-          },
-          code(props) {
-            const myRef = useRef<SyntaxHighlighter>(null)
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { children, className, node, ...rest } = props
-
-            const match = /language-(\w+)/.exec(className || '')
-            return match ? (
-              <Code language={match[1]} ref={myRef}>
-                {String(children).replace(/\n$/, '')}
-              </Code>
-            ) : (
-              <code {...rest} className={className + " text-wrap"}>
-                {children}
-              </code>
-            )
-          },
-        }}
-      >
-        {message}
-      </Markdown>
+      {reasoning}
+      {answer}
     </Card >
     <div className="mx-5 group-hover:animate-fadeIn opacity-0 group-hover:opacity-100 flex gap-2 items-center">
       <CopyButton className="opacity-75" text={message} />

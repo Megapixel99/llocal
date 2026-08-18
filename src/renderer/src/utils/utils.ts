@@ -10,28 +10,46 @@ export function cn(...inputs: ClassValue[]): string {
 /**
  * Adds a new line before the ending </customtag>
  * */
-export function formatCustomBlock(message: string, tagName: string): string {
-  const tag = `</${tagName}>`
-  let response = ""
-  if (!message.includes(tag)) response = message
-  else {
-    const position = message.indexOf(tag)
-    response = message.slice(0, position) + "\n" + message.slice(position)
-  }
-  return response
-}
-
 /**
- * Checks whether or not both opening and closing tags exist.
- * Inherently the above two checks result in understanding whether the tag exists/is complete.
- * */
-export function customTagValidator(message: string, tagName: string): boolean {
-  let validator = false // validating flag initialized as false
-  const tag = [`<${tagName}>`, `</${tagName}>`] // defining the opening and closing tag
-  for (const type of tag) {
-    validator = message.includes(type)
+ * Split a stored assistant message into its reasoning trace and its answer — the inverse of
+ * composeAssistantMessage().
+ *
+ * Reasoning has to be pulled out BEFORE the message reaches react-markdown. Rendering it as a raw
+ * <think> element only ever worked for a single-paragraph trace: in markdown a blank line closes an
+ * HTML block, so every paragraph after the first escaped the element and rendered as part of the
+ * answer — which is why multi-paragraph reasoning appeared inline instead of inside the accordion.
+ *
+ * Collects EVERY block, because one message can carry more than one: a thinking model streams its
+ * reasoning natively (which composeAssistantMessage wraps in a <think> block) and, on the reasoning
+ * flow, also writes the <think> block the prompt asked for. Both belong in the accordion; only what
+ * sits outside them is the answer. A trailing unterminated block is reasoning still streaming in.
+ */
+export function splitThinking(raw: string): { thinking: string; content: string } {
+  const message = raw ?? ''
+  const OPEN = '<think>'
+  const CLOSE = '</think>'
+  if (!message.includes(OPEN)) return { thinking: '', content: message }
+
+  const thoughts: string[] = []
+  let content = ''
+  let cursor = 0
+  for (;;) {
+    const open = message.indexOf(OPEN, cursor)
+    if (open === -1) {
+      content += message.slice(cursor)
+      break
+    }
+    content += message.slice(cursor, open)
+    const close = message.indexOf(CLOSE, open + OPEN.length)
+    if (close === -1) {
+      // Mid-stream: the block hasn't closed yet, so the rest is reasoning so far.
+      thoughts.push(message.slice(open + OPEN.length))
+      break
+    }
+    thoughts.push(message.slice(open + OPEN.length, close))
+    cursor = close + CLOSE.length
   }
-  return validator
+  return { thinking: thoughts.join('\n\n').trim(), content: content.trim() }
 }
 
 /**
